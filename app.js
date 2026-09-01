@@ -49,57 +49,126 @@ function naoArquivados(lista) { return lista.filter((x) => !x.arquivado); }
 function arquivados(lista) { return lista.filter((x) => x.arquivado); }
 
 // ============================================================
-//  BUG 4 — identidade obrigatória
-//  Antes o app assumia a primeira da lista quando ninguém escolhia,
-//  então quem esquecesse de trocar votava no nome de outra pessoa.
-//  Agora ninguém escreve nada sem se identificar.
+//  ENTRADA NO CLUBE — login por e-mail
+//  Só quem está na tabela "membras" do banco entra. O Supabase manda
+//  um link para o e-mail; clicar nele é a prova de que a pessoa é ela.
+//  Ninguém mais escolhe o próprio nome numa lista: quem você é vem do
+//  login, então não dá para votar ou resenhar no nome de outra.
 // ============================================================
-const CHAVE_MEMBRA = "clube_membra";
-let membra = null;
+let membra = null;   // nome de exibição de quem está logada
+let sessao = null;
 
-function lerMembraSalva() {
-  try {
-    const salva = localStorage.getItem(CHAVE_MEMBRA);
-    return (cfg.MEMBRAS || []).indexOf(salva) >= 0 ? salva : null;
-  } catch { return null; }
-}
-function definirMembra(nome) {
-  membra = nome;
-  try { localStorage.setItem(CHAVE_MEMBRA, nome); } catch {}
-  pintarIdentidade();
-  renderTudo();
-}
 function pintarIdentidade() {
   $("#eu-avatar").textContent = membra ? iniciais(membra) : "?";
-  $("#eu-nome").textContent = membra || "quem é você";
+  $("#eu-nome").textContent = membra || "entrar";
 }
 function precisaIdentidade() {
   if (membra) return false;
-  abrirEscolhaMembra();
+  avisar("Entre com o seu e-mail para poder escrever.", "erro");
   return true;
 }
 
-function abrirEscolhaMembra() {
-  const lista = (cfg.MEMBRAS || []).map((m) =>
-    '<button type="button" class="escolha" data-nome="' + esc(m) + '"' +
-    (m === membra ? ' aria-current="true"' : "") + ">" + avatarHtml(m) + "<span>" + esc(m) + "</span></button>"
-  ).join("");
-
+// Tela de entrada, cobrindo o app inteiro. Não dá para fechar.
+function mostrarPortao(erro) {
   abrirModal({
-    titulo: "Quem é você?",
-    explica: "Escolha o seu nome. Fica guardado neste aparelho, então só perguntamos uma vez.",
-    corpo: '<div class="escolha-lista">' + lista + "</div>",
-    podeFechar: !!membra,
+    titulo: "Entrar no clube",
+    explica: "Só as membras do Vinho, Book e Prosa entram aqui. Coloque o seu e-mail e mandamos um link de acesso — não precisa inventar nem decorar senha.",
+    podeFechar: false,
+    corpo: '<form id="form-entrar">' +
+      '<label class="campo"><span>Seu e-mail</span>' +
+      '<input type="email" name="email" required autocomplete="email" placeholder="voce@exemplo.com"></label>' +
+      (erro ? '<p class="explica" style="color:var(--erro)">' + esc(erro) + "</p>" : "") +
+      '<div class="modal-acoes"><button type="submit" class="btn">Receber meu link</button></div></form>',
     aoAbrir(modal) {
-      modal.querySelector(".escolha-lista").addEventListener("click", (ev) => {
-        const b = ev.target.closest("[data-nome]");
-        if (!b) return;
-        fecharModal();
-        definirMembra(b.dataset.nome);
-        avisar("Oi, " + b.dataset.nome + "!");
+      const f = modal.querySelector("#form-entrar");
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const email = f.email.value.trim().toLowerCase();
+        const botao = f.querySelector("button");
+        botao.disabled = true; botao.textContent = "Enviando…";
+        const r = await db.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: location.origin + location.pathname },
+        });
+        botao.disabled = false; botao.textContent = "Receber meu link";
+        if (r.error) {
+          console.error(r.error);
+          mostrarPortao(/rate|limit|seconds/i.test(r.error.message || "")
+            ? "Muitos pedidos seguidos. Espere um minuto e tente de novo."
+            : "Não deu para enviar o link agora. Confira o e-mail e tente de novo.");
+          return;
+        }
+        mostrarLinkEnviado(email);
       });
     },
   });
+}
+
+function mostrarLinkEnviado(email) {
+  abrirModal({
+    titulo: "Olhe o seu e-mail",
+    explica: "Mandamos um link de acesso para " + email + ". Abra o e-mail NESTE MESMO aparelho e clique no link — você volta para cá já dentro do clube. Se não achar, olhe no spam.",
+    podeFechar: false,
+    corpo: '<div class="escolha-lista">' +
+      '<button type="button" class="escolha" id="btn-outro-email">Usar outro e-mail</button></div>',
+    aoAbrir(modal) {
+      modal.querySelector("#btn-outro-email").addEventListener("click", () => mostrarPortao());
+    },
+  });
+}
+
+function mostrarNaoAutorizada(email) {
+  abrirModal({
+    titulo: "Esse e-mail não está na lista",
+    explica: "O endereço " + email + " não faz parte do Vinho, Book e Prosa. Se você é do clube, peça para a Wal acrescentar esse e-mail — ou entre com o endereço que ela cadastrou.",
+    podeFechar: false,
+    corpo: '<div class="escolha-lista">' +
+      '<button type="button" class="escolha" id="btn-sair">Tentar com outro e-mail</button></div>',
+    aoAbrir(modal) {
+      modal.querySelector("#btn-sair").addEventListener("click", async () => {
+        await db.auth.signOut();
+        mostrarPortao();
+      });
+    },
+  });
+}
+
+function abrirMenuConta() {
+  if (!membra) { mostrarPortao(); return; }
+  abrirModal({
+    titulo: membra,
+    explica: sessao && sessao.user ? "Você entrou com " + sessao.user.email + "." : "",
+    corpo: '<div class="escolha-lista">' +
+      '<button type="button" class="escolha" id="btn-sair-conta">Sair do clube neste aparelho</button></div>',
+    aoAbrir(modal) {
+      modal.querySelector("#btn-sair-conta").addEventListener("click", async () => {
+        fecharModal();
+        await db.auth.signOut();
+      });
+    },
+  });
+}
+
+// Chamada sempre que a sessão muda (entrou, saiu, link clicado).
+async function aplicarSessao(nova) {
+  sessao = nova;
+  if (!sessao) {
+    membra = null; pintarIdentidade();
+    Object.keys(estado).forEach((k) => { estado[k] = []; });
+    renderTudo();
+    status("Fora do clube", "");
+    mostrarPortao();
+    return;
+  }
+  // Está logada — mas é do clube? Quem não está na lista não enxerga nada.
+  const eu = await db.from("membras").select("nome")
+    .eq("email", String(sessao.user.email || "").toLowerCase()).maybeSingle();
+  if (eu.error) { status(mensagemDeErro("conferir a sua entrada", eu.error), "erro"); return; }
+  if (!eu.data) { membra = null; pintarIdentidade(); mostrarNaoAutorizada(sessao.user.email); return; }
+  membra = eu.data.nome;
+  pintarIdentidade();
+  fecharModal();
+  carregar();
 }
 
 // ============================================================
@@ -196,6 +265,7 @@ async function gravar(oQue, executar, botao, mensagemSucesso) {
 // ============================================================
 async function carregar({ silencioso = false } = {}) {
   if (!db) { status(problemaConfig || "Banco não configurado", "erro"); return; }
+  if (!membra) return;   // fora do clube não há o que carregar
   try {
     const tabelas = ["livros", "votos", "encontros", "presencas", "resenhas"];
     const respostas = await Promise.all([
@@ -700,9 +770,8 @@ function iniciar() {
   $("#titulo-clube").textContent = nome;
   document.title = nome;
 
-  membra = lerMembraSalva();
   pintarIdentidade();
-  $("#btn-membra").addEventListener("click", abrirEscolhaMembra);
+  $("#btn-membra").addEventListener("click", abrirMenuConta);
 
   document.querySelectorAll(".aba").forEach((btn) => {
     btn.addEventListener("click", () => trocarAba(btn.dataset.aba));
@@ -716,8 +785,17 @@ function iniciar() {
   $("#form-encontro").addEventListener("submit", addEncontro);
   $("#btn-atualizar").addEventListener("click", () => carregar());
 
-  // Só pedimos a identidade quando há banco: sem config, o rodapé já explica o que falta.
-  carregar().then(() => { if (db && !membra) abrirEscolhaMembra(); });
+  if (!db) { status(problemaConfig || "Banco não configurado", "erro"); return; }
+
+  // O Supabase avisa quando a sessão muda — inclusive ao voltar do link do e-mail.
+  db.auth.onAuthStateChange((_evento, nova) => {
+    // Limpa o endereço, para o link de acesso não ficar visível na barra.
+    if (location.hash.includes("access_token")) {
+      history.replaceState(null, "", location.origin + location.pathname);
+    }
+    aplicarSessao(nova);
+  });
+  db.auth.getSession().then(({ data }) => aplicarSessao(data.session));
 
   // Atualização automática: a cada 15s, e só com a aba visível.
   setInterval(() => {

@@ -7,16 +7,16 @@ Dados compartilhados via Supabase. Publicado como site estático (Netlify/Vercel
 - HTML + CSS + JavaScript puro (vanilla). **Sem** Node/npm/bundler/build.
 - Supabase JS v2, carregado por CDN no `index.html`.
 - Persistência: tabelas no Supabase (ver `schema.sql`).
-- Identidade sem login: a pessoa escolhe seu nome numa lista (`MEMBRAS` em `config.js`),
-  guardado em `localStorage` do aparelho dela. A escolha é **obrigatória** — sem ela
-  o app não grava nada, para ninguém votar no nome de outra pessoa por engano.
+- **Login por e-mail** (link mágico do Supabase Auth). Quem você é vem do login,
+  não de uma escolha na tela — ninguém consegue agir no nome de outra.
+  A lista de quem pode entrar é a tabela `membras` no banco.
 
 ## Arquivos
 - `index.html` — estrutura: cabeçalho (nome do clube + botão de identidade), 4 abas
   (fila, votação, agenda, resenhas), rodapé com status, `#avisos` e `#modal-root`.
 - `styles.css` — identidade visual do clube. Tudo sai de variáveis em `:root`.
-- `config.js` — **único arquivo que a usuária edita**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-  `MEMBRAS`, `NOME_DO_CLUBE`. Exposto em `window.APP_CONFIG`.
+- `config.js` — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NOME_DO_CLUBE`.
+  A lista de membras NÃO está mais aqui: ela vive na tabela `membras`.
 - `app.js` — toda a lógica.
 - `schema.sql` — tabelas, índice de unicidade e políticas RLS.
 
@@ -33,6 +33,20 @@ Tema claro e escuro completos.
 - `encontros(id, data, hora, local, livro_id, arquivado)`
 - `presencas(id, encontro_id, membra, confirmado)` — único por (encontro_id, membra)
 - `resenhas(id, livro_id, membra, nota 1..5, texto)` — único por (livro_id, membra)
+
+## SÓ MEMBRAS ENTRAM — regra estrutural
+Todas as políticas do banco são `to authenticated using (public.eh_membra())`.
+Consequências:
+- Sem login, o Supabase devolve **zero linhas** e recusa qualquer escrita.
+- Logada com e-mail fora da tabela `membras`: também zero. O app mostra
+  "esse e-mail não está na lista".
+- `aplicarSessao()` no `app.js` é o coração disso: consulta `membras` pelo e-mail
+  da sessão, define `membra` (o nome de exibição) e só então chama `carregar()`.
+- `carregar()` retorna cedo se `membra` for nulo — não adianta buscar deslogada.
+- Para acrescentar alguém: `insert into membras (email, nome) values (...)`.
+- Ao mudar o endereço do site, atualize **Site URL** e **Redirect URLs** no painel
+  do Supabase (Authentication -> URL Configuration), senão o link do e-mail volta
+  para o lugar errado.
 
 ## NADA É APAGADO — regra estrutural
 O banco **não tem política de delete**. Sem política, o Postgres recusa qualquer

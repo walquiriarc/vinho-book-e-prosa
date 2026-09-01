@@ -81,9 +81,11 @@ não são afetados — eles ficam no banco, separados do site.
 
 ## Como cada membra usa
 
-- Na primeira vez que abre o link, o app pergunta **"Quem é você?"** e a pessoa escolhe o
-  próprio nome. Fica lembrado naquele aparelho, e dá para trocar no botão do canto superior.
-  Enquanto ninguém escolhe, o app não deixa gravar nada — assim ninguém vota no nome de outra.
+- Na primeira vez, o app pede **o e-mail** e manda um link de acesso. Ela clica no link
+  (no mesmo aparelho) e entra — sem senha para decorar. Depois disso o aparelho lembra.
+- **Só os e-mails cadastrados entram.** Quem não está na lista do clube não vê nada,
+  nem tendo o endereço do site. E como a entrada é por e-mail, ninguém consegue votar
+  ou resenhar no nome de outra.
 - **Fila**: adicionar livros, definir o livro atual, marcar como lido.
   Só um livro fica como "Lendo agora" por vez.
 - **Arquivar em vez de apagar**: o botão "Arquivar" tira o livro ou o encontro da tela sem

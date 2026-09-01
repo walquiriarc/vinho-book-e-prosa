@@ -74,17 +74,58 @@ drop index if exists um_livro_atual;
 create unique index um_livro_atual on livros (status) where status = 'atual' and arquivado = false;
 
 -- ============================================================
+--  QUEM ENTRA NO CLUBE
+-- ------------------------------------------------------------
+--  O login é por e-mail (link mágico do Supabase). Só os e-mails
+--  desta tabela enxergam qualquer coisa. Para acrescentar alguém:
+--    insert into membras (email, nome) values ('fulana@x.com','Fulana');
+-- ============================================================
+create table if not exists membras (
+  id        uuid primary key default gen_random_uuid(),
+  email     text not null unique,
+  nome      text not null,
+  criado_em timestamptz not null default now()
+);
+
+create or replace function public.normaliza_email() returns trigger
+language plpgsql as $$
+begin
+  new.email := lower(trim(new.email));
+  return new;
+end $$;
+
+drop trigger if exists membras_normaliza_email on membras;
+create trigger membras_normaliza_email before insert or update on membras
+  for each row execute function public.normaliza_email();
+
+-- "Quem está pedindo é do clube?"
+create or replace function public.eh_membra() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from membras
+    where email = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+$$;
+
+create or replace function public.meu_nome() returns text
+language sql stable security definer set search_path = public as $$
+  select nome from membras
+  where email = lower(coalesce(auth.jwt() ->> 'email', ''))
+  limit 1;
+$$;
+
+alter table membras enable row level security;
+
+-- ============================================================
 --  Permissões de acesso
 -- ------------------------------------------------------------
---  O site é público na internet e a chave publicável vai junto
---  nele, então qualquer pessoa com o endereço consegue LER,
---  CRIAR e EDITAR. Para um clube fechado de 8 amigas, tudo bem.
+--  SÓ MEMBRAS LOGADAS. Quem não fez login não enxerga uma linha,
+--  mesmo tendo a chave que vai dentro do site. Quem fez login com
+--  um e-mail fora da tabela "membras" também não enxerga nada.
 --
---  O que NÃO liberamos é APAGAR: não existe política de delete,
---  e sem política o Postgres recusa a exclusão. Nada some do
---  banco — o que sai de vista é marcado como arquivado e volta
---  com um clique. Isso protege as resenhas e o histórico de
---  vocês contra um toque errado (ou contra um estranho curioso).
+--  E ninguém APAGA: não existe política de delete, e sem política
+--  o Postgres recusa a exclusão. O que sai de vista é marcado como
+--  arquivado e volta com um clique.
 -- ============================================================
 
 alter table livros    enable row level security;
@@ -106,22 +147,26 @@ drop policy if exists ler_presencas on presencas; drop policy if exists criar_pr
 drop policy if exists ler_resenhas on resenhas;  drop policy if exists criar_resenhas on resenhas;  drop policy if exists editar_resenhas on resenhas;
 
 -- Ler, criar e editar: liberados. Apagar: nenhuma política = negado.
-create policy ler_livros    on livros    for select using (true);
-create policy criar_livros  on livros    for insert with check (true);
-create policy editar_livros on livros    for update using (true) with check (true);
+create policy ler_livros on livros for select to authenticated using (public.eh_membra());
+create policy criar_livros on livros for insert to authenticated with check (public.eh_membra());
+create policy editar_livros on livros for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
 
-create policy ler_votos     on votos     for select using (true);
-create policy criar_votos   on votos     for insert with check (true);
-create policy editar_votos  on votos     for update using (true) with check (true);
+create policy ler_votos on votos for select to authenticated using (public.eh_membra());
+create policy criar_votos on votos for insert to authenticated with check (public.eh_membra());
+create policy editar_votos on votos for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
 
-create policy ler_encontros    on encontros for select using (true);
-create policy criar_encontros  on encontros for insert with check (true);
-create policy editar_encontros on encontros for update using (true) with check (true);
+create policy ler_encontros on encontros for select to authenticated using (public.eh_membra());
+create policy criar_encontros on encontros for insert to authenticated with check (public.eh_membra());
+create policy editar_encontros on encontros for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
 
-create policy ler_presencas    on presencas for select using (true);
-create policy criar_presencas  on presencas for insert with check (true);
-create policy editar_presencas on presencas for update using (true) with check (true);
+create policy ler_presencas on presencas for select to authenticated using (public.eh_membra());
+create policy criar_presencas on presencas for insert to authenticated with check (public.eh_membra());
+create policy editar_presencas on presencas for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
 
-create policy ler_resenhas    on resenhas for select using (true);
-create policy criar_resenhas  on resenhas for insert with check (true);
-create policy editar_resenhas on resenhas for update using (true) with check (true);
+create policy ler_resenhas on resenhas for select to authenticated using (public.eh_membra());
+create policy criar_resenhas on resenhas for insert to authenticated with check (public.eh_membra());
+create policy editar_resenhas on resenhas for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
+
+-- A lista de membras: cada membra vê o clube inteiro. Estranho não vê nada.
+drop policy if exists ler_membras on membras;
+create policy ler_membras on membras for select to authenticated using (public.eh_membra());
