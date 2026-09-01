@@ -4,6 +4,10 @@ Um app web para o clube: **fila de livros, votação, agenda de encontros e rese
 
 O banco já está criado e conectado. Falta você **trocar os nomes das amigas no `config.js`** e **publicar o link**. Tempo estimado: **10 minutos**.
 
+
+**O app está no ar:** https://walquiriarc.github.io/vinho-book-e-prosa/
+**Código:** https://github.com/walquiriarc/vinho-book-e-prosa
+
 ---
 
 ## Como funciona (em 1 minuto)
@@ -50,17 +54,28 @@ Dê **dois cliques** no arquivo **`index.html`** — ele abre no navegador. No r
 
 ---
 
-## PARTE 4 — Publicar e gerar o link · ~10 min
+## PARTE 4 — Publicar · ✅ JÁ FEITO
 
-O jeito mais simples (sem conta técnica):
+O site está publicado pelo **GitHub Pages**, a partir do repositório
+`walquiriarc/vinho-book-e-prosa` (branch `main`):
 
-1. Acesse **https://app.netlify.com/drop**.
-2. **Arraste a pasta inteira** `clube-do-livro` para a área indicada na página.
-3. Em segundos o Netlify te dá um **link** (ex.: `https://clube-do-livro-abc.netlify.app`).
-4. Crie uma conta grátis (Google) quando ele pedir, para o link ficar permanente e você poder renomear.
-5. **Mande esse link no grupo do WhatsApp.** Cada membra abre, escolhe o próprio nome no topo (em "Você é:") e começa a usar.
+> **https://walquiriarc.github.io/vinho-book-e-prosa/**
 
-> Alternativa: **Vercel** (https://vercel.com) também funciona e é grátis. O Netlify Drop é o mais rápido porque é só arrastar.
+É esse o link para mandar no grupo do WhatsApp.
+
+### Para atualizar o site depois de mexer no código
+
+No Terminal, dentro da pasta do projeto:
+
+```
+cd ~/Downloads/clube-do-livro
+git add -A
+git commit -m "descreva a mudanca"
+git push
+```
+
+Em cerca de um minuto o site no ar já reflete a alteração. Os dados no Supabase
+não são afetados — eles ficam no banco, separados do site.
 
 ---
 
