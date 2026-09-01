@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vinho, Book e Prosa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Karla:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-in">
+      <div>
+        <p class="eyebrow">clube do livro</p>
+        <h1 id="titulo-clube">Vinho, Book e Prosa</h1>
+      </div>
+      <button id="btn-membra" class="eu-btn" type="button">
+        <span class="avatar" id="eu-avatar">?</span>
+        <span class="nome" id="eu-nome">quem é você</span>
+      </button>
+    </div>
+    <nav class="abas" role="tablist" aria-label="Seções do clube">
+      <button class="aba" role="tab" id="aba-fila" aria-controls="painel-fila" aria-selected="true" data-aba="fila" style="--c:var(--fila)">Fila</button>
+      <button class="aba" role="tab" id="aba-votacao" aria-controls="painel-votacao" aria-selected="false" data-aba="votacao" style="--c:var(--votacao)">Votação</button>
+      <button class="aba" role="tab" id="aba-agenda" aria-controls="painel-agenda" aria-selected="false" data-aba="agenda" style="--c:var(--agenda)">Agenda</button>
+      <button class="aba" role="tab" id="aba-resenhas" aria-controls="painel-resenhas" aria-selected="false" data-aba="resenhas" style="--c:var(--resenhas)">Resenhas</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- ABA: FILA -->
+    <section id="painel-fila" class="painel ativo" role="tabpanel" aria-labelledby="aba-fila" tabindex="0">
+      <form class="cartao form" id="form-livro">
+        <h2>Adicionar livro à fila</h2>
+        <div class="linha-form">
+          <label class="campo"><span>Título</span><input id="novo-titulo" required placeholder="Nome do livro" /></label>
+          <label class="campo"><span>Autoria</span><input id="novo-autor" placeholder="Opcional" /></label>
+        </div>
+        <button type="submit" class="btn" id="btn-add-livro">Adicionar à fila</button>
+      </form>
+      <div id="lista-atual"></div>
+      <h2 class="subtitulo">Na fila</h2>
+      <div id="lista-fila"></div>
+      <h2 class="subtitulo">Já lidos</h2>
+      <div id="lista-lidos"></div>
+      <h2 class="subtitulo" id="titulo-arquivados" hidden>Arquivados</h2>
+      <div id="lista-arquivados"></div>
+    </section>
+
+    <!-- ABA: VOTAÇÃO -->
+    <section id="painel-votacao" class="painel" role="tabpanel" aria-labelledby="aba-votacao" tabindex="0" hidden>
+      <p class="ajuda">Vote nos livros da fila para escolher a próxima leitura. Cada uma tem um voto por livro.</p>
+      <div id="lista-votacao"></div>
+    </section>
+
+    <!-- ABA: AGENDA -->
+    <section id="painel-agenda" class="painel" role="tabpanel" aria-labelledby="aba-agenda" tabindex="0" hidden>
+      <form class="cartao form" id="form-encontro">
+        <h2>Marcar encontro</h2>
+        <div class="linha-form">
+          <label class="campo"><span>Data</span><input id="novo-data" type="date" required /></label>
+          <label class="campo"><span>Horário</span><input id="novo-hora" type="time" /></label>
+        </div>
+        <div class="linha-form">
+          <label class="campo"><span>Onde</span><input id="novo-local" placeholder="Endereço ou link da chamada" /></label>
+          <label class="campo"><span>Livro do encontro</span><select id="novo-encontro-livro"></select></label>
+        </div>
+        <button type="submit" class="btn" id="btn-add-encontro">Marcar encontro</button>
+      </form>
+      <div id="lista-encontros"></div>
+    </section>
+
+    <!-- ABA: RESENHAS -->
+    <section id="painel-resenhas" class="painel" role="tabpanel" aria-labelledby="aba-resenhas" tabindex="0" hidden>
+      <p class="ajuda">Nota e opinião de cada uma sobre os livros já lidos. O que você escrever fica guardado mesmo antes de salvar.</p>
+      <div id="lista-resenhas"></div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <span id="status-conexao" class="status">Conectando…</span>
+    <button id="btn-atualizar" class="btn fantasma mini" type="button">Atualizar agora</button>
+  </footer>
+
+  <div id="avisos" aria-live="polite"></div>
+  <div id="modal-root"></div>
+
+  <!-- Biblioteca do Supabase (banco de dados compartilhado) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
