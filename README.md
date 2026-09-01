@@ -48,7 +48,7 @@ Ana, Bia, Carla..."* — ele faz.
 
 ## PARTE 3 — Testar no seu computador · ~2 min
 
-Dê **dois cliques** no arquivo **`index.html`** — ele abre no navegador. No rodapé deve aparecer **"Conectado ✓"** (isso já foi testado aqui, contra o banco de verdade). Adicione um livro de teste para confirmar que salva, e depois remova.
+Dê **dois cliques** no arquivo **`docs/index.html`** — ele abre no navegador. No rodapé deve aparecer **"Conectado ✓"** (isso já foi testado aqui, contra o banco de verdade). Adicione um livro de teste para confirmar que salva, e depois remova.
 
 - Se aparecer **"Sem conexão com o banco"**: o próprio rodapé diz o que está faltando.
 

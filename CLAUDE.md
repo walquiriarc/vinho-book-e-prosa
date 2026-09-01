@@ -12,12 +12,17 @@ Dados compartilhados via Supabase. Publicado como site estático (Netlify/Vercel
   A lista de quem pode entrar é a tabela `membras` no banco.
 
 ## Arquivos
-- `index.html` — estrutura: cabeçalho (nome do clube + botão de identidade), 4 abas
+Só a pasta **`docs/`** vai para o ar — ela contém o SITE, apesar do nome.
+O nome é imposição do GitHub Pages, que só publica da raiz ou de `docs/`.
+README.md, CLAUDE.md e schema.sql ficam FORA dela, para não serem servidos
+publicamente junto com o app.
+
+- `docs/index.html` — estrutura: cabeçalho (nome do clube + botão de identidade), 4 abas
   (fila, votação, agenda, resenhas), rodapé com status, `#avisos` e `#modal-root`.
-- `styles.css` — identidade visual do clube. Tudo sai de variáveis em `:root`.
-- `config.js` — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NOME_DO_CLUBE`.
+- `docs/styles.css` — identidade visual do clube. Tudo sai de variáveis em `:root`.
+- `docs/config.js` — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NOME_DO_CLUBE`.
   A lista de membras NÃO está mais aqui: ela vive na tabela `membras`.
-- `app.js` — toda a lógica.
+- `docs/app.js` — toda a lógica.
 - `schema.sql` — tabelas, índice de unicidade e políticas RLS.
 
 ## Identidade visual
