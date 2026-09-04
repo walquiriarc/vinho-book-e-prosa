@@ -228,6 +228,7 @@ function bancoOk() {
 function mensagemDeErro(oQue, e) {
   const cod = e && (e.code || e.status);
   if (cod === "23505") return "Isso já estava registrado.";
+  if (cod === "SEM_EXCLUSAO") return "Esse livro já tem voto, resenha ou encontro ligado a ele, então não pode ser excluído. Use Arquivar.";
   if (cod === "23503") return "O item relacionado não existe mais. Atualize a página.";
   if (cod === "42501") return "O banco recusou a gravação. Confira se as políticas do schema.sql rodaram no Supabase.";
   if (cod === "42P01") return "A tabela não existe no banco. Rode o schema.sql completo no Supabase.";
@@ -499,6 +500,27 @@ async function alterarDataLido(livro, btn) {
     },
   });
 }
+// Um livro "tem histórico" quando alguém votou, resenhou, ou há encontro ligado.
+// Só livro SEM histórico pode ser excluído de vez (o banco confere a mesma regra).
+function temHistorico(l) {
+  return estado.votos.some((v) => v.livro_id === l.id && v.ativo !== false)
+      || estado.resenhas.some((r) => r.livro_id === l.id)
+      || estado.encontros.some((e) => e.livro_id === l.id);
+}
+async function excluirLivro(livro, btn) {
+  if (!confirm('Excluir "' + livro.titulo + '" de vez?\n\nEle não tem voto, resenha nem encontro ligado, então nada se perde. Mas não dá para desfazer.')) return;
+  await gravar("excluir o livro", async () => {
+    // Pedimos as linhas excluídas de volta: se vier vazio, o banco recusou (o livro ganhou histórico).
+    const r = await db.from("livros").delete().eq("id", livro.id).select("id");
+    if (!r.error && (!r.data || !r.data.length)) return { error: { code: "SEM_EXCLUSAO" } };
+    return r;
+  }, btn, "Livro excluído.");
+}
+function botaoRemover(l) {
+  return temHistorico(l)
+    ? botao("Arquivar", "btn perigo mini", (b) => arquivarLivro(l, b))
+    : botao("Excluir", "btn perigo mini", (b) => excluirLivro(l, b));
+}
 async function arquivarLivro(livro, btn) {
   if (!confirm('Tirar "' + livro.titulo + '" da lista?\n\nEle sai da tela, mas os votos e as resenhas continuam guardados — e dá para trazer de volta quando quiser.')) return;
   await gravar("arquivar o livro",
@@ -532,7 +554,7 @@ function cartaoLivro(l) {
     if (l.status === "atual") acoes.appendChild(botao("Marcar como lido", "btn fantasma mini",
       (b) => mudarStatus(l.id, "lido", b, "Guardado em Lidos. Dê a sua nota!").then((ok) => { if (ok) trocarAba("lidos", l.id); })));
     if (l.status === "lido") acoes.appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
-    acoes.appendChild(botao("Arquivar", "btn perigo mini", (b) => arquivarLivro(l, b)));
+    acoes.appendChild(botaoRemover(l));
   }
   return c;
 }
@@ -805,6 +827,8 @@ function renderLidos() {
         (l.terminado_em ? "terminado em " + esc(dataCurta(l.terminado_em)) : "sem data de término") +
       "</span></div></article>");
     c.querySelector(".linha-data").appendChild(botao(l.terminado_em ? "Alterar data" : "Informar data", "btn fantasma mini", (b) => alterarDataLido(l, b)));
+    c.querySelector(".linha-data").appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
+    c.querySelector(".linha-data").appendChild(botaoRemover(l));
 
     // ---- editor da pessoa que está usando ----
     if (membra) {

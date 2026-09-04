@@ -61,7 +61,12 @@ Consequências:
 O banco **não tem política de delete**. Sem política, o Postgres recusa qualquer
 exclusão, mesmo com a chave publicável que vai no site. Consequências para quem
 mexer no código:
-- **Nunca escreva `.delete()` no app.** Não vai funcionar e não deve.
+- **Uma única exceção à regra de não apagar:** livro SEM histórico (nenhum voto ativo,
+  nenhuma resenha, nenhum encontro ligado) pode ser excluído de vez — política
+  `excluir_livros` + função `livro_tem_historico()`. No app, `botaoRemover(l)` mostra
+  "Excluir" ou "Arquivar" conforme `temHistorico(l)`. `excluirLivro()` pede `.select("id")`
+  de volta: zero linhas significa que o banco recusou (o app avisa para arquivar).
+  Fora esse caso, **nunca escreva `.delete()` no app.**
 - Tirar de vista = `arquivado = true` (livros, encontros). Voltar = `arquivado = false`.
 - Tirar um voto = `ativo = false` na mesma linha. Cancelar presença = `confirmado = false`.
 - As listas usam `naoArquivados()` / `arquivados()` para separar o que aparece.

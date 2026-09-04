@@ -172,3 +172,21 @@ create policy editar_resenhas on resenhas for update to authenticated using (pub
 -- A lista de membras: cada membra vê o clube inteiro. Estranho não vê nada.
 drop policy if exists ler_membras on membras;
 create policy ler_membras on membras for select to authenticated using (public.eh_membra());
+
+-- ============================================================
+--  A ÚNICA exclusão permitida: livro sem histórico
+-- ------------------------------------------------------------
+--  Livro que ninguém votou, ninguém resenhou e nenhum encontro usa
+--  pode ser excluído de vez (erro de digitação, duplicado). Com
+--  qualquer histórico, só arquivar.
+-- ============================================================
+create or replace function public.livro_tem_historico(livro uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from votos     v where v.livro_id = livro and v.ativo)
+      or exists (select 1 from resenhas  r where r.livro_id = livro)
+      or exists (select 1 from encontros e where e.livro_id = livro);
+$$;
+
+drop policy if exists excluir_livros on livros;
+create policy excluir_livros on livros for delete to authenticated
+  using (public.eh_membra() and not public.livro_tem_historico(id));
