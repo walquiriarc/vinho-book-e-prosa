@@ -168,6 +168,18 @@ textarea { resize: vertical; min-height: 80px; }
 .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
 
 /* ---------- itens ---------- */
+/* ---------- capas ---------- */
+.item.com-capa { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
+.item.com-capa .corpo { min-width: 0; }
+.capa {
+  display: block; width: 64px; height: 94px; object-fit: cover; border-radius: 6px;
+  background: var(--surface-2); box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.capa-vazia {
+  display: grid; place-items: center; font-family: "Fraunces", Georgia, serif;
+  font-size: 26px; font-weight: 700; color: var(--ink-3);
+  border: 1px solid var(--line); box-shadow: none;
+}
 .item .titulo { font-family: "Fraunces", Georgia, serif; font-size: 18px; font-weight: 700; font-variation-settings: "SOFT" 30; }
 .item .meta { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
 .item .linha-mono { font-family: "Space Mono", monospace; font-size: 11.5px; color: var(--ink-3); margin-top: 10px; letter-spacing: .02em; }

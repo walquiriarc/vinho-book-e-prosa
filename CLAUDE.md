@@ -34,7 +34,10 @@ agenda (coral), resenhas (verde-azulado). Tipografia: **Fraunces** nos títulos,
 Tema claro e escuro completos.
 
 ## Tabelas
-- `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em)` — status ∈ {fila, atual, lido}.
+- `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em, capa_url)` — status ∈ {fila, atual, lido}.
+  `capa_url` é relativo (`capas/NN-slug.jpg`, arquivos em `docs/capas/`) ou link externo
+  (Open Library, achado em segundo plano ao adicionar um livro COM autoria — `buscarCapa()`).
+  Sem capa, o cartão mostra a inicial do título (`capaHtml()`).
   Na tela, `fila` aparece como **"Quero ler"** (o nome interno não mudou). `terminado_em` é
   preenchido com hoje ao virar `lido`, zerado ao voltar para `fila`, e editável na aba Lidos.
   Um índice parcial garante **um único** livro `atual` (arquivados não contam).

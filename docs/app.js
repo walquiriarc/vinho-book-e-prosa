@@ -43,6 +43,24 @@ function avatarHtml(nome, classe) {
   return '<span class="avatar ' + (classe || "") + '" title="' + esc(nome) + '">' + esc(iniciais(nome)) + "</span>";
 }
 
+// Capa do livro: a imagem, ou um marcador com a inicial quando não há capa.
+function capaHtml(l) {
+  if (l.capa_url) return '<img class="capa" src="' + esc(l.capa_url) + '" alt="" loading="lazy">';
+  return '<span class="capa capa-vazia" aria-hidden="true">' + esc((l.titulo || "?").trim()[0] || "?") + "</span>";
+}
+// Procura uma capa na Open Library. Só tentamos quando há autoria, para não
+// colar a capa de outro livro homônimo. Falhou? Fica sem capa, sem alarde.
+async function buscarCapa(titulo, autor) {
+  if (!autor) return null;
+  try {
+    const p = new URLSearchParams({ title: titulo, author: autor, limit: "5", fields: "cover_i" });
+    const r = await fetch("https://openlibrary.org/search.json?" + p, { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    const d = (j.docs || []).find((x) => x.cover_i);
+    return d ? "https://covers.openlibrary.org/b/id/" + d.cover_i + "-M.jpg" : null;
+  } catch { return null; }
+}
+
 // Nada neste app é apagado. O que sai de vista fica marcado como arquivado
 // e pode voltar — por isso o banco nem tem permissão para excluir linhas.
 function naoArquivados(lista) { return lista.filter((x) => !x.arquivado); }
@@ -458,6 +476,13 @@ async function addLivro(ev) {
     return ins;
   }, $("#btn-add-livro"), mensagem);
 
+  if (ok && novoId) {
+    // Em segundo plano: se achar capa, guarda e redesenha. Não trava nada.
+    buscarCapa(titulo, autor).then((url) => {
+      if (!url) return;
+      db.from("livros").update({ capa_url: url }).eq("id", novoId).then(() => carregar({ silencioso: true }));
+    });
+  }
   if (ok) {
     campoTitulo.value = ""; campoAutor.value = ""; $("#novo-terminado").value = "";
     const padrao = document.querySelector('input[name="destino"][value="fila"]');
@@ -540,11 +565,11 @@ function cartaoLivro(l) {
   if (l.sugerido_por) partes.push("sugerido por " + esc(l.sugerido_por));
   const rotuloSelo = { fila: "Quero ler", atual: "Lendo agora", lido: "Lido" }[l.status] || l.status;
 
-  const c = el('<article class="item" id="livro-' + esc(l.id) + '">' +
-    '<span class="selo ' + esc(l.status) + '">' + esc(rotuloSelo) + "</span>" +
+  const c = el('<article class="item com-capa" id="livro-' + esc(l.id) + '">' + capaHtml(l) +
+    '<div class="corpo"><span class="selo ' + esc(l.status) + '">' + esc(rotuloSelo) + "</span>" +
     '<div class="titulo">' + esc(l.titulo) + "</div>" +
     (partes.length ? '<div class="meta">' + partes.join(" · ") + "</div>" : "") +
-    '<div class="acoes"></div></article>');
+    '<div class="acoes"></div></div></article>');
 
   const acoes = c.querySelector(".acoes");
   if (l.arquivado) {
@@ -614,14 +639,14 @@ function renderVotacao() {
     const quem = votosDo(l.id).map((v) => v.membra);
     const lidera = l.votos > 0 && l.votos === fila[0].votos;
 
-    const c = el('<article class="item' + (lidera ? " lider" : "") + '">' +
+    const c = el('<article class="item com-capa' + (lidera ? " lider" : "") + '">' + capaHtml(l) + '<div class="corpo">' +
       (lidera && i === 0 ? '<span class="selo" style="--c:var(--votacao)">Mais votado</span>' : "") +
       '<div class="titulo">' + esc(l.titulo) + "</div>" +
       (l.autor ? '<div class="meta">de ' + esc(l.autor) + "</div>" : "") +
       '<div class="barra-votos"><i style="width:' + Math.round((l.votos / maximo) * 100) + '%"></i></div>' +
       '<div class="linha-mono"><span class="contador-votos">' + l.votos + "</span> " +
       (l.votos === 1 ? "voto" : "votos") + (quem.length ? " · " + quem.map(esc).join(", ") : "") + "</div>" +
-      '<div class="acoes"></div></article>');
+      '<div class="acoes"></div></div></article>');
 
     c.querySelector(".acoes").appendChild(
       botao(votei ? "Tirar meu voto" : "Votar neste", votei ? "btn fantasma mini" : "btn mini", (b) => alternarVoto(l.id, b))
@@ -818,14 +843,14 @@ function renderLidos() {
     const minha = minhaResenha(l.id);
     const rascunho = lerRascunho(l.id);
 
-    const c = el('<article class="item" id="livro-' + esc(l.id) + '">' +
+    const c = el('<article class="item com-capa" id="livro-' + esc(l.id) + '">' + capaHtml(l) + '<div class="corpo">' +
       '<div class="titulo">' + esc(l.titulo) + "</div>" +
       '<div class="meta">' + (l.autor ? "de " + esc(l.autor) + " · " : "") +
         (media ? "média " + media.toFixed(1).replace(".", ",") + " de 5 " + estrelasFixas(Math.round(media)) : "sem notas ainda") +
       "</div>" +
       '<div class="linha-data"><span class="linha-mono" style="margin-top:0">' +
         (l.terminado_em ? "terminado em " + esc(dataCurta(l.terminado_em)) : "sem data de término") +
-      "</span></div></article>");
+      "</span></div></div></article>");
     c.querySelector(".linha-data").appendChild(botao(l.terminado_em ? "Alterar data" : "Informar data", "btn fantasma mini", (b) => alterarDataLido(l, b)));
     c.querySelector(".linha-data").appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
     c.querySelector(".linha-data").appendChild(botaoRemover(l));
@@ -864,14 +889,14 @@ function renderLidos() {
         acoes.appendChild(botao("Descartar rascunho", "btn fantasma mini", () => { limparRascunho(l.id); renderLidos(); }));
       }
       editor.appendChild(acoes);
-      c.appendChild(editor);
+      c.querySelector(".corpo").appendChild(editor);
     }
 
     // ---- resenhas das outras ----
     estado.resenhas
       .filter((r) => r.livro_id === l.id && r.membra !== membra)
       .forEach((r) => {
-        c.appendChild(el('<div class="resenha-item">' + avatarHtml(r.membra) +
+        c.querySelector(".corpo").appendChild(el('<div class="resenha-item">' + avatarHtml(r.membra) +
           "<div><div class=\"quem\">" + esc(r.membra) + " " + estrelasFixas(r.nota || 0) + "</div>" +
           (r.texto ? '<p class="texto">"' + esc(r.texto) + '"</p>' : "") + "</div></div>"));
       });

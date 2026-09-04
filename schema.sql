@@ -18,6 +18,7 @@ create table if not exists livros (
   status       text not null default 'fila',
   arquivado    boolean not null default false,
   terminado_em date,   -- quando o clube terminou (preenchido ao marcar como lido; editável)
+  capa_url     text,   -- imagem da capa: arquivo em docs/capas/ ou link externo
   criado_em    timestamptz not null default now()
 );
 
@@ -70,6 +71,7 @@ alter table livros    add column if not exists arquivado boolean not null defaul
 alter table encontros add column if not exists arquivado boolean not null default false;
 alter table votos     add column if not exists ativo     boolean not null default true;
 alter table livros    add column if not exists terminado_em date;
+alter table livros    add column if not exists capa_url text;
 
 -- Só pode existir UM livro com status 'atual' por vez (arquivados não contam).
 drop index if exists um_livro_atual;
