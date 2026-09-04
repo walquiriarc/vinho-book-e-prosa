@@ -18,40 +18,48 @@
       </div>
       <button id="btn-membra" class="eu-btn" type="button">
         <span class="avatar" id="eu-avatar">?</span>
-        <span class="nome" id="eu-nome">quem é você</span>
+        <span class="nome" id="eu-nome">entrar</span>
       </button>
     </div>
     <nav class="abas" role="tablist" aria-label="Seções do clube">
-      <button class="aba" role="tab" id="aba-fila" aria-controls="painel-fila" aria-selected="true" data-aba="fila" style="--c:var(--fila)">Fila</button>
+      <button class="aba" role="tab" id="aba-livros" aria-controls="painel-livros" aria-selected="true" data-aba="livros" style="--c:var(--livros)">Livros</button>
       <button class="aba" role="tab" id="aba-votacao" aria-controls="painel-votacao" aria-selected="false" data-aba="votacao" style="--c:var(--votacao)">Votação</button>
       <button class="aba" role="tab" id="aba-agenda" aria-controls="painel-agenda" aria-selected="false" data-aba="agenda" style="--c:var(--agenda)">Agenda</button>
-      <button class="aba" role="tab" id="aba-resenhas" aria-controls="painel-resenhas" aria-selected="false" data-aba="resenhas" style="--c:var(--resenhas)">Resenhas</button>
+      <button class="aba" role="tab" id="aba-lidos" aria-controls="painel-lidos" aria-selected="false" data-aba="lidos" style="--c:var(--lidos)">Lidos</button>
     </nav>
   </header>
 
   <main class="wrap">
-    <!-- ABA: FILA -->
-    <section id="painel-fila" class="painel ativo" role="tabpanel" aria-labelledby="aba-fila" tabindex="0">
+    <!-- ABA: LIVROS -->
+    <section id="painel-livros" class="painel" role="tabpanel" aria-labelledby="aba-livros" tabindex="0">
       <form class="cartao form" id="form-livro">
-        <h2>Adicionar livro à fila</h2>
+        <h2>Adicionar livro</h2>
         <div class="linha-form">
           <label class="campo"><span>Título</span><input id="novo-titulo" required placeholder="Nome do livro" /></label>
           <label class="campo"><span>Autoria</span><input id="novo-autor" placeholder="Opcional" /></label>
         </div>
-        <button type="submit" class="btn" id="btn-add-livro">Adicionar à fila</button>
+        <fieldset class="campo destino">
+          <legend>Onde ele entra</legend>
+          <div class="segmentos" role="radiogroup" aria-label="Onde o livro entra">
+            <label><input type="radio" name="destino" value="fila" checked /><span>Quero ler</span></label>
+            <label><input type="radio" name="destino" value="atual" /><span>Lendo agora</span></label>
+            <label><input type="radio" name="destino" value="lido" /><span>Já lido</span></label>
+          </div>
+          <p class="dica" id="dica-destino" hidden></p>
+        </fieldset>
+        <label class="campo campo-estreito" id="campo-terminado" hidden><span>Terminado em</span><input id="novo-terminado" type="date" /></label>
+        <button type="submit" class="btn" id="btn-add-livro">Adicionar livro</button>
       </form>
       <div id="lista-atual"></div>
-      <h2 class="subtitulo">Na fila</h2>
+      <h2 class="subtitulo">Quero ler</h2>
       <div id="lista-fila"></div>
-      <h2 class="subtitulo">Já lidos</h2>
-      <div id="lista-lidos"></div>
       <h2 class="subtitulo" id="titulo-arquivados" hidden>Arquivados</h2>
       <div id="lista-arquivados"></div>
     </section>
 
     <!-- ABA: VOTAÇÃO -->
     <section id="painel-votacao" class="painel" role="tabpanel" aria-labelledby="aba-votacao" tabindex="0" hidden>
-      <p class="ajuda">Vote nos livros da fila para escolher a próxima leitura. Cada uma tem um voto por livro.</p>
+      <p class="ajuda">Vote nos livros de "Quero ler" para escolher a próxima leitura. Cada uma tem um voto por livro.</p>
       <div id="lista-votacao"></div>
     </section>
 
@@ -72,10 +80,10 @@
       <div id="lista-encontros"></div>
     </section>
 
-    <!-- ABA: RESENHAS -->
-    <section id="painel-resenhas" class="painel" role="tabpanel" aria-labelledby="aba-resenhas" tabindex="0" hidden>
-      <p class="ajuda">Nota e opinião de cada uma sobre os livros já lidos. O que você escrever fica guardado mesmo antes de salvar.</p>
-      <div id="lista-resenhas"></div>
+    <!-- ABA: LIDOS -->
+    <section id="painel-lidos" class="painel" role="tabpanel" aria-labelledby="aba-lidos" tabindex="0" hidden>
+      <p class="ajuda">Os livros que já terminamos, do mais recente para o mais antigo, com a nota e a opinião de cada uma. O que você escrever fica guardado mesmo antes de salvar.</p>
+      <div id="lista-lidos"></div>
     </section>
   </main>
 

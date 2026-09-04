@@ -86,16 +86,18 @@ não são afetados — eles ficam no banco, separados do site.
 - **Só os e-mails cadastrados entram.** Quem não está na lista do clube não vê nada,
   nem tendo o endereço do site. E como a entrada é por e-mail, ninguém consegue votar
   ou resenhar no nome de outra.
-- **Fila**: adicionar livros, definir o livro atual, marcar como lido.
-  Só um livro fica como "Lendo agora" por vez.
+- **Livros**: adicionar livros escolhendo onde entram — **Quero ler**, **Lendo agora** ou
+  **Já lido** (bom para cadastrar de uma vez o histórico do clube). Só um livro fica como
+  "Lendo agora" por vez: ao colocar outro, o anterior volta para Quero ler, e o app avisa.
 - **Arquivar em vez de apagar**: o botão "Arquivar" tira o livro ou o encontro da tela sem
   destruir nada. Os itens guardados ficam numa seção "Arquivados" no fim da aba, com um
   botão "Trazer de volta". Nada neste app pode ser apagado de verdade.
-- **Votação**: votar nos livros da fila (1 voto por pessoa por livro), com barra e destaque
+- **Votação**: votar nos livros de Quero ler (1 voto por pessoa por livro), com barra e destaque
   para o mais votado.
 - **Agenda**: marcar encontros e confirmar presença. Os próximos aparecem primeiro, com
   contagem regressiva; os que já passaram ficam separados no fim.
-- **Resenhas**: dar nota (estrelas) e escrever a opinião dos livros lidos.
+- **Lidos**: os livros terminados, do mais recente para o mais antigo, cada um com a nota
+  (estrelas) e a opinião de cada uma. A data de término é preenchida sozinha e dá para ajustar.
   O que você digita fica guardado como rascunho mesmo antes de salvar — a atualização
   automática não apaga o que está sendo escrito.
 

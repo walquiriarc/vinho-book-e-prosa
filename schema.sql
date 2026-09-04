@@ -17,6 +17,7 @@ create table if not exists livros (
   -- status: 'fila' (esperando), 'atual' (lendo agora), 'lido' (concluído)
   status       text not null default 'fila',
   arquivado    boolean not null default false,
+  terminado_em date,   -- quando o clube terminou (preenchido ao marcar como lido; editável)
   criado_em    timestamptz not null default now()
 );
 
@@ -68,6 +69,7 @@ create table if not exists resenhas (
 alter table livros    add column if not exists arquivado boolean not null default false;
 alter table encontros add column if not exists arquivado boolean not null default false;
 alter table votos     add column if not exists ativo     boolean not null default true;
+alter table livros    add column if not exists terminado_em date;
 
 -- Só pode existir UM livro com status 'atual' por vez (arquivados não contam).
 drop index if exists um_livro_atual;

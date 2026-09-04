@@ -305,7 +305,7 @@ let redesenhoAdiado = false;
 // As áreas que o redesenho recria do zero. Os formulários fixos do topo
 // não entram aqui: eles nunca são destruídos, então digitar neles não
 // precisa segurar a atualização.
-const AREAS_RECRIADAS = "#lista-atual, #lista-fila, #lista-lidos, #lista-votacao, #lista-encontros, #lista-resenhas";
+const AREAS_RECRIADAS = "#lista-atual, #lista-fila, #lista-arquivados, #lista-votacao, #lista-encontros, #lista-lidos";
 
 function estaEditando() {
   const a = document.activeElement;
@@ -317,10 +317,10 @@ function estaEditando() {
 function renderTudo() {
   if (estaEditando()) { redesenhoAdiado = true; return; }
   redesenhoAdiado = false;
-  renderFila();
+  renderLivros();
   renderVotacao();
   renderAgenda();
-  renderResenhas();
+  renderLidos();
 }
 
 // Duas formas de retomar um redesenho adiado: assim que o foco sai do campo
@@ -356,6 +356,14 @@ function limparRascunho(livroId) {
 // ============================================================
 const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function comoData(d) { try { return new Date(d + "T12:00:00"); } catch { return null; } }
+function hojeISO() {
+  const d = hoje();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function dataCurta(s) {
+  const d = comoData(s);
+  return d ? d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+}
 function hoje() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
 function diasAte(d) { return Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - hoje()) / 86400000); }
 function quando(n) {
@@ -372,10 +380,17 @@ function dataPorExtenso(d) {
 // ============================================================
 //  Abas
 // ============================================================
-function trocarAba(nome) {
+function trocarAba(nome, livroId) {
+  if (!document.getElementById("painel-" + nome)) nome = "livros";
   document.querySelectorAll(".aba").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.aba === nome)));
   document.querySelectorAll(".painel").forEach((p) => { p.hidden = p.id !== "painel-" + nome; });
   try { sessionStorage.setItem("aba", nome); } catch {}
+  if (livroId) {
+    setTimeout(() => {
+      const alvo = document.getElementById("livro-" + livroId);
+      if (alvo) alvo.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
 }
 
 function botao(texto, classe, aoClicar) {
@@ -387,17 +402,69 @@ function botao(texto, classe, aoClicar) {
 // ============================================================
 //  ABA 1 — FILA DE LIVROS
 // ============================================================
+function destinoEscolhido() {
+  const r = document.querySelector('input[name="destino"]:checked');
+  return r ? r.value : "fila";
+}
+
+// A dica embaixo das opções: avisa o que acontece com o livro atual e
+// mostra o campo de data só quando o destino é "já lido".
+function atualizarDicaDestino() {
+  const destino = destinoEscolhido();
+  const dica = $("#dica-destino");
+  const campoData = $("#campo-terminado");
+  const atual = naoArquivados(estado.livros).find((l) => l.status === "atual");
+  campoData.hidden = destino !== "lido";
+  if (destino === "lido" && !$("#novo-terminado").value) $("#novo-terminado").value = hojeISO();
+  if (destino === "atual" && atual) {
+    dica.textContent = '"' + atual.titulo + '" volta para Quero ler.';
+    dica.hidden = false;
+  } else if (destino === "atual") {
+    dica.textContent = "Vira a leitura do clube agora.";
+    dica.hidden = false;
+  } else {
+    dica.hidden = true;
+  }
+}
+
 async function addLivro(ev) {
   ev.preventDefault();
   const campoTitulo = $("#novo-titulo");
   const campoAutor = $("#novo-autor");
   const titulo = campoTitulo.value.trim();
   const autor = campoAutor.value.trim();
+  const destino = destinoEscolhido();
+  const terminado = $("#novo-terminado").value || hojeISO();
   if (!titulo) { campoTitulo.focus(); return; }
-  const ok = await gravar("adicionar o livro",
-    () => db.from("livros").insert({ titulo, autor, sugerido_por: membra, status: "fila" }),
-    $("#btn-add-livro"), '"' + titulo + '" entrou na fila.');
-  if (ok) { campoTitulo.value = ""; campoAutor.value = ""; campoTitulo.focus(); }
+
+  const anterior = destino === "atual" ? naoArquivados(estado.livros).find((l) => l.status === "atual") : null;
+  const mensagem =
+    destino === "lido"  ? '"' + titulo + '" guardado em Lidos. Dê a sua nota!' :
+    destino === "atual" ? (anterior ? '"' + titulo + '" é a leitura atual. "' + anterior.titulo + '" voltou para Quero ler.'
+                                    : '"' + titulo + '" é a leitura atual.') :
+                          '"' + titulo + '" entrou em Quero ler.';
+
+  let novoId = null;
+  const ok = await gravar("adicionar o livro", async () => {
+    if (anterior) {
+      const r = await db.from("livros").update({ status: "fila" }).eq("id", anterior.id);
+      if (r.error) return r;
+    }
+    const linha = { titulo, autor, sugerido_por: membra, status: destino };
+    if (destino === "lido") linha.terminado_em = terminado;
+    const ins = await db.from("livros").insert(linha).select("id").single();
+    if (!ins.error && ins.data) novoId = ins.data.id;
+    return ins;
+  }, $("#btn-add-livro"), mensagem);
+
+  if (ok) {
+    campoTitulo.value = ""; campoAutor.value = ""; $("#novo-terminado").value = "";
+    const padrao = document.querySelector('input[name="destino"][value="fila"]');
+    if (padrao) padrao.checked = true;
+    atualizarDicaDestino();
+    if (destino === "lido") trocarAba("lidos", novoId);
+    else campoTitulo.focus();
+  }
 }
 
 // BUG 5 — só um livro pode ser a leitura atual.
@@ -407,19 +474,39 @@ async function definirAtual(id, btn) {
     const rebaixa = await db.from("livros").update({ status: "fila" }).eq("status", "atual").neq("id", id);
     if (rebaixa.error) return rebaixa;
     return db.from("livros").update({ status: "atual" }).eq("id", id);
-  }, btn, "Leitura atual definida. O livro anterior voltou para a fila.");
+  }, btn, "Leitura atual definida. O livro anterior voltou para Quero ler.");
 }
 async function mudarStatus(id, status, btn, msg) {
-  await gravar("mudar o livro de lugar", () => db.from("livros").update({ status }).eq("id", id), btn, msg);
+  const dados = { status };
+  if (status === "lido") dados.terminado_em = hojeISO();   // terminou hoje; dá para ajustar em Lidos
+  if (status === "fila") dados.terminado_em = null;
+  return gravar("mudar o livro de lugar", () => db.from("livros").update(dados).eq("id", id), btn, msg);
+}
+async function alterarDataLido(livro, btn) {
+  abrirModal({
+    titulo: "Quando terminamos?",
+    explica: '"' + livro.titulo + '"',
+    corpo: '<form id="form-data"><label class="campo"><span>Terminado em</span>' +
+      '<input type="date" name="data" required value="' + esc(livro.terminado_em || hojeISO()) + '"></label>' +
+      '<div class="modal-acoes"><button type="submit" class="btn">Salvar</button></div></form>',
+    aoAbrir(modal) {
+      modal.querySelector("#form-data").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const data = ev.target.data.value;
+        fecharModal();
+        await gravar("alterar a data", () => db.from("livros").update({ terminado_em: data }).eq("id", livro.id), btn, "Data alterada.");
+      });
+    },
+  });
 }
 async function arquivarLivro(livro, btn) {
   if (!confirm('Tirar "' + livro.titulo + '" da lista?\n\nEle sai da tela, mas os votos e as resenhas continuam guardados — e dá para trazer de volta quando quiser.')) return;
   await gravar("arquivar o livro",
     () => db.from("livros").update({ arquivado: true }).eq("id", livro.id),
-    btn, "Livro arquivado. Está no fim da aba Fila.");
+    btn, "Livro arquivado. Está no fim da aba Livros.");
 }
 async function restaurarLivro(livro, btn) {
-  // Volta sempre para a fila: outro livro pode ter virado a leitura atual enquanto isso.
+  // Volta sempre para Quero ler: outro livro pode ter virado a leitura atual enquanto isso.
   await gravar("trazer o livro de volta",
     () => db.from("livros").update({ arquivado: false, status: livro.status === "atual" ? "fila" : livro.status }).eq("id", livro.id),
     btn, "Livro de volta na lista.");
@@ -429,9 +516,9 @@ function cartaoLivro(l) {
   const partes = [];
   if (l.autor) partes.push("de " + esc(l.autor));
   if (l.sugerido_por) partes.push("sugerido por " + esc(l.sugerido_por));
-  const rotuloSelo = { fila: "Na fila", atual: "Lendo agora", lido: "Lido" }[l.status] || l.status;
+  const rotuloSelo = { fila: "Quero ler", atual: "Lendo agora", lido: "Lido" }[l.status] || l.status;
 
-  const c = el('<article class="item">' +
+  const c = el('<article class="item" id="livro-' + esc(l.id) + '">' +
     '<span class="selo ' + esc(l.status) + '">' + esc(rotuloSelo) + "</span>" +
     '<div class="titulo">' + esc(l.titulo) + "</div>" +
     (partes.length ? '<div class="meta">' + partes.join(" · ") + "</div>" : "") +
@@ -442,14 +529,15 @@ function cartaoLivro(l) {
     acoes.appendChild(botao("Trazer de volta", "btn fantasma mini", (b) => restaurarLivro(l, b)));
   } else {
     if (l.status === "fila") acoes.appendChild(botao("Definir como leitura atual", "btn fantasma mini", (b) => definirAtual(l.id, b)));
-    if (l.status === "atual") acoes.appendChild(botao("Marcar como lido", "btn fantasma mini", (b) => mudarStatus(l.id, "lido", b, "Livro guardado nos lidos. Já dá para resenhar.")));
-    if (l.status === "lido") acoes.appendChild(botao("Voltar para a fila", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro devolvido à fila.")));
+    if (l.status === "atual") acoes.appendChild(botao("Marcar como lido", "btn fantasma mini",
+      (b) => mudarStatus(l.id, "lido", b, "Guardado em Lidos. Dê a sua nota!").then((ok) => { if (ok) trocarAba("lidos", l.id); })));
+    if (l.status === "lido") acoes.appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
     acoes.appendChild(botao("Arquivar", "btn perigo mini", (b) => arquivarLivro(l, b)));
   }
   return c;
 }
 
-function renderFila() {
+function renderLivros() {
   const bloco = (container, itens, vazio) => {
     container.innerHTML = "";
     if (!itens.length) { container.appendChild(el('<p class="vazio">' + esc(vazio) + "</p>")); return; }
@@ -457,11 +545,10 @@ function renderFila() {
   };
   const vivos = naoArquivados(estado.livros);
   bloco($("#lista-atual"), vivos.filter((l) => l.status === "atual"),
-    "Nenhum livro em leitura. Escolha um da fila abaixo.");
+    "Nenhum livro em leitura. Escolha um em Quero ler, ou adicione acima como \"Lendo agora\".");
   bloco($("#lista-fila"), vivos.filter((l) => l.status === "fila"),
-    "A fila está vazia. Adicione um livro no formulário acima.");
-  bloco($("#lista-lidos"), vivos.filter((l) => l.status === "lido"),
-    "Ainda não terminamos nenhum livro.");
+    "Nada em Quero ler ainda. Adicione um livro no formulário acima.");
+  atualizarDicaDestino();
 
   const guardados = arquivados(estado.livros);
   $("#titulo-arquivados").hidden = !guardados.length;
@@ -495,7 +582,7 @@ function renderVotacao() {
     .sort((a, b) => b.votos - a.votos || a.titulo.localeCompare(b.titulo, "pt-BR"));
 
   if (!fila.length) {
-    cont.appendChild(el('<p class="vazio">Nenhum livro na fila para votar. Adicione livros na aba Fila.</p>'));
+    cont.appendChild(el('<p class="vazio">Nada em Quero ler para votar. Adicione livros na aba Livros.</p>'));
     return;
   }
   const maximo = Math.max(1, fila[0].votos);
@@ -664,7 +751,7 @@ async function salvarResenha(livroId, nota, texto, btn) {
       : db.from("resenhas").insert({ livro_id: livroId, membra, nota, texto }),
     btn, "Resenha salva.");
   // Limpa o rascunho e redesenha, para a marca "não salvo" sumir na hora.
-  if (ok) { limparRascunho(livroId); renderResenhas(); }
+  if (ok) { limparRascunho(livroId); renderLidos(); }
 }
 
 // Estrelas acessíveis: botões de verdade, com teclado e leitor de tela.
@@ -692,12 +779,15 @@ function seletorEstrelas(valorInicial, aoEscolher) {
   return wrap;
 }
 
-function renderResenhas() {
-  const cont = $("#lista-resenhas");
+function renderLidos() {
+  const cont = $("#lista-lidos");
   cont.innerHTML = "";
-  const lidos = naoArquivados(estado.livros).filter((l) => l.status === "lido");
+  // Do mais recente para o mais antigo; sem data vai para o fim.
+  const lidos = naoArquivados(estado.livros).filter((l) => l.status === "lido")
+    .sort((a, b) => String(b.terminado_em || "").localeCompare(String(a.terminado_em || ""))
+                 || String(b.criado_em || "").localeCompare(String(a.criado_em || "")));
   if (!lidos.length) {
-    cont.appendChild(el('<p class="vazio">Marque um livro como "lido" na aba Fila para poder resenhá-lo.</p>'));
+    cont.appendChild(el('<p class="vazio">Ainda não terminamos nenhum livro. Quando terminarem, marque como lido na aba Livros — ou adicione um livro antigo já como "Já lido".</p>'));
     return;
   }
 
@@ -706,11 +796,15 @@ function renderResenhas() {
     const minha = minhaResenha(l.id);
     const rascunho = lerRascunho(l.id);
 
-    const c = el('<article class="item">' +
+    const c = el('<article class="item" id="livro-' + esc(l.id) + '">' +
       '<div class="titulo">' + esc(l.titulo) + "</div>" +
       '<div class="meta">' + (l.autor ? "de " + esc(l.autor) + " · " : "") +
         (media ? "média " + media.toFixed(1).replace(".", ",") + " de 5 " + estrelasFixas(Math.round(media)) : "sem notas ainda") +
-      "</div></article>");
+      "</div>" +
+      '<div class="linha-data"><span class="linha-mono" style="margin-top:0">' +
+        (l.terminado_em ? "terminado em " + esc(dataCurta(l.terminado_em)) : "sem data de término") +
+      "</span></div></article>");
+    c.querySelector(".linha-data").appendChild(botao(l.terminado_em ? "Alterar data" : "Informar data", "btn fantasma mini", (b) => alterarDataLido(l, b)));
 
     // ---- editor da pessoa que está usando ----
     if (membra) {
@@ -743,7 +837,7 @@ function renderResenhas() {
       const acoes = el('<div class="acoes"></div>');
       acoes.appendChild(salvar);
       if (rascunho) {
-        acoes.appendChild(botao("Descartar rascunho", "btn fantasma mini", () => { limparRascunho(l.id); renderResenhas(); }));
+        acoes.appendChild(botao("Descartar rascunho", "btn fantasma mini", () => { limparRascunho(l.id); renderLidos(); }));
       }
       editor.appendChild(acoes);
       c.appendChild(editor);
@@ -782,6 +876,7 @@ function iniciar() {
   } catch {}
 
   $("#form-livro").addEventListener("submit", addLivro);
+  document.querySelectorAll('input[name="destino"]').forEach((r) => r.addEventListener("change", atualizarDicaDestino));
   $("#form-encontro").addEventListener("submit", addEncontro);
   $("#btn-atualizar").addEventListener("click", () => carregar());
 

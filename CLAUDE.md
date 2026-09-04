@@ -18,7 +18,9 @@ README.md, CLAUDE.md e schema.sql ficam FORA dela, para não serem servidos
 publicamente junto com o app.
 
 - `docs/index.html` — estrutura: cabeçalho (nome do clube + botão de identidade), 4 abas
-  (fila, votação, agenda, resenhas), rodapé com status, `#avisos` e `#modal-root`.
+  (**livros**, votação, agenda, **lidos**), rodapé com status, `#avisos` e `#modal-root`.
+  Na aba Livros, o formulário de adicionar tem um seletor de destino (Quero ler /
+  Lendo agora / Já lido); "Já lido" mostra o campo de data.
 - `docs/styles.css` — identidade visual do clube. Tudo sai de variáveis em `:root`.
 - `docs/config.js` — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NOME_DO_CLUBE`.
   A lista de membras NÃO está mais aqui: ela vive na tabela `membras`.
@@ -32,7 +34,9 @@ agenda (coral), resenhas (verde-azulado). Tipografia: **Fraunces** nos títulos,
 Tema claro e escuro completos.
 
 ## Tabelas
-- `livros(id, titulo, autor, sugerido_por, status, arquivado)` — status ∈ {fila, atual, lido}.
+- `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em)` — status ∈ {fila, atual, lido}.
+  Na tela, `fila` aparece como **"Quero ler"** (o nome interno não mudou). `terminado_em` é
+  preenchido com hoje ao virar `lido`, zerado ao voltar para `fila`, e editável na aba Lidos.
   Um índice parcial garante **um único** livro `atual` (arquivados não contam).
 - `votos(id, livro_id, membra, ativo)` — único por (livro_id, membra)
 - `encontros(id, data, hora, local, livro_id, arquivado)`
@@ -73,8 +77,10 @@ mexer no código:
 - `avisar(texto, tipo)` mostra um aviso flutuante. `status(texto, classe)` escreve no rodapé.
 - `abrirModal({...})` / `fecharModal()` para diálogos; `abrirEscolhaMembra()` é a tela
   "Quem é você?".
-- Render: `renderFila`, `renderVotacao`, `renderAgenda`, `renderResenhas`, coordenadas
-  por `renderTudo()`.
+- Render: `renderLivros`, `renderVotacao`, `renderAgenda`, `renderLidos`, coordenadas
+  por `renderTudo()`. A aba Lidos ordena por `terminado_em` decrescente (sem data vai ao fim).
+- `trocarAba(nome, livroId?)` aceita um id para rolar até o cartão `#livro-<id>` — usado
+  ao adicionar ou marcar um livro como lido, para levar a pessoa direto até ele.
 - Atualização automática a cada 15s, só com a aba visível.
 
 ## Convenções
