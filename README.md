@@ -79,10 +79,21 @@ não são afetados — eles ficam no banco, separados do site.
 
 ---
 
+## Instalar como app no celular (sem loja)
+
+Não precisa de Play Store nem App Store. Depois de entrar, o app oferece **"Leve o clube
+para a tela inicial"**. No Android é um toque em *Instalar*; no iPhone, pelo Safari:
+*Compartilhar → Adicionar à Tela de Início*. Fica um ícone do clube, abre em tela cheia,
+como app de verdade — e abre mesmo sem internet (mostrando o que estava em cache).
+
+**Importante no iPhone:** entre pelo ícone e, na tela do e-mail, **digite o código de 6
+dígitos** em vez de clicar no link — o link abre no Safari, fora do app.
+
 ## Como cada membra usa
 
-- Na primeira vez, o app pede **o e-mail** e manda um link de acesso. Ela clica no link
-  (no mesmo aparelho) e entra — sem senha para decorar. Depois disso o aparelho lembra.
+- Na primeira vez, o app pede **o e-mail** e manda uma mensagem com um **código de 6
+  dígitos** e um link. Ela digita o código (ou clica no link) e entra — sem senha para
+  decorar. Depois disso o aparelho lembra.
 - **Só os e-mails cadastrados entram.** Quem não está na lista do clube não vê nada,
   nem tendo o endereço do site. E como a entrada é por e-mail, ninguém consegue votar
   ou resenhar no nome de outra.

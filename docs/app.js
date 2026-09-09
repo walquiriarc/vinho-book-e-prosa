@@ -122,15 +122,36 @@ function mostrarPortao(erro) {
   });
 }
 
-function mostrarLinkEnviado(email) {
+function mostrarLinkEnviado(email, erro) {
   abrirModal({
     titulo: "Olhe o seu e-mail",
-    explica: "Mandamos um link de acesso para " + email + ". Abra o e-mail NESTE MESMO aparelho e clique no link — você volta para cá já dentro do clube. Se não achar, olhe no spam.",
+    explica: "Mandamos um e-mail para " + email + " com um código de 6 dígitos e um link. Se não achar, olhe no spam.",
     podeFechar: false,
-    corpo: '<div class="escolha-lista">' +
+    corpo: '<form id="form-codigo">' +
+      '<label class="campo"><span>Digite o código do e-mail</span>' +
+      '<input class="codigo-input" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required></label>' +
+      (erro ? '<p class="explica" style="color:var(--erro)">' + esc(erro) + "</p>" : "") +
+      '<div class="modal-acoes"><button type="submit" class="btn">Entrar</button></div></form>' +
+      '<p class="explica" style="margin-top:14px">Ou clique no link do e-mail. No app instalado na tela inicial, o código é o jeito mais garantido.</p>' +
+      '<div class="escolha-lista">' +
       '<button type="button" class="escolha" id="btn-outro-email">Usar outro e-mail</button></div>',
     aoAbrir(modal) {
       modal.querySelector("#btn-outro-email").addEventListener("click", () => mostrarPortao());
+      const f = modal.querySelector("#form-codigo");
+      setTimeout(() => f.codigo.focus(), 60);
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const botao = f.querySelector("button");
+        botao.disabled = true; botao.textContent = "Conferindo…";
+        const r = await db.auth.verifyOtp({ email, token: f.codigo.value.trim(), type: "email" });
+        if (r.error) {
+          console.error(r.error);
+          mostrarLinkEnviado(email, /expired|invalid/i.test(r.error.message || "")
+            ? "Código inválido ou vencido. Confira os 6 dígitos ou peça outro e-mail."
+            : "Não deu para conferir o código agora. Tente de novo.");
+        }
+        // Se deu certo, o onAuthStateChange abre o clube sozinho.
+      });
     },
   });
 }
@@ -157,14 +178,70 @@ function abrirMenuConta() {
     titulo: membra,
     explica: sessao && sessao.user ? "Você entrou com " + sessao.user.email + "." : "",
     corpo: '<div class="escolha-lista">' +
+      (jaInstalado() ? "" : '<button type="button" class="escolha" id="btn-instalar-menu">Instalar na tela inicial</button>') +
       '<button type="button" class="escolha" id="btn-sair-conta">Sair do clube neste aparelho</button></div>',
     aoAbrir(modal) {
+      const bi = modal.querySelector("#btn-instalar-menu");
+      if (bi) bi.addEventListener("click", () => { fecharModal(); instalar(); });
       modal.querySelector("#btn-sair-conta").addEventListener("click", async () => {
         fecharModal();
         await db.auth.signOut();
       });
     },
   });
+}
+
+// ============================================================
+//  INSTALAR NA TELA INICIAL
+//  Android/Chrome avisa quando dá para instalar (beforeinstallprompt) e
+//  a gente guarda o pedido para disparar num botão. iPhone não tem isso:
+//  mostramos o passo a passo do Safari.
+// ============================================================
+let pedidoInstalacao = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); pedidoInstalacao = e; mostrarFaixaInstalar(); });
+window.addEventListener("appinstalled", () => { pedidoInstalacao = null; const f = $(".faixa-instalar"); if (f) f.remove(); avisar("Instalado! Procure o ícone na sua tela inicial."); });
+
+function ehIphone() { return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+function jaInstalado() { return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true; }
+function dispensouInstalar() { try { return localStorage.getItem("instalar_dispensado") === "1"; } catch { return false; } }
+
+function instalar() {
+  if (pedidoInstalacao) {
+    pedidoInstalacao.prompt();
+    pedidoInstalacao.userChoice.then(() => { pedidoInstalacao = null; });
+    return;
+  }
+  const iphone = ehIphone();
+  abrirModal({
+    titulo: "Instalar na tela inicial",
+    explica: iphone
+      ? "No iPhone é pelo Safari. Se abriu por outro navegador, abra este endereço no Safari primeiro."
+      : "Com o app instalado, ele abre direto pelo ícone, em tela cheia, sem a barra do navegador.",
+    corpo: '<ol class="passos">' + (iphone
+      ? "<li>Toque no botão <strong>Compartilhar</strong> (o quadrado com a seta para cima, na barra de baixo).</li>" +
+        "<li>Role a lista e toque em <strong>Adicionar à Tela de Início</strong>.</li>" +
+        "<li>Confirme em <strong>Adicionar</strong>. Pronto — o ícone do clube aparece na sua tela.</li>"
+      : "<li>Toque nos <strong>três pontinhos</strong> no canto do navegador.</li>" +
+        "<li>Toque em <strong>Adicionar à tela inicial</strong> (ou <strong>Instalar app</strong>).</li>" +
+        "<li>Confirme. O ícone do clube aparece com os outros apps.</li>") +
+      '</ol><p class="explica" style="margin-top:12px">Depois de instalado, entre pelo ícone e faça o login lá dentro — de preferência digitando o <strong>código</strong> do e-mail.</p>',
+  });
+}
+
+function mostrarFaixaInstalar() {
+  if (!membra || jaInstalado() || dispensouInstalar() || $(".faixa-instalar")) return;
+  const faixa = el('<div class="faixa-instalar" role="region" aria-label="Instalar o app">' +
+    '<img class="icone-app" src="icones/icone-192.png" alt="">' +
+    '<div class="texto"><strong>Leve o clube para a tela inicial.</strong> Abre como app, sem barra de navegador.</div>' +
+    '<div class="acoes" style="margin:0"></div></div>');
+  const acoes = faixa.querySelector(".acoes");
+  acoes.appendChild(botao("Instalar", "btn mini", () => instalar()));
+  acoes.appendChild(botao("Agora não", "btn fantasma mini", () => {
+    try { localStorage.setItem("instalar_dispensado", "1"); } catch {}
+    faixa.remove();
+  }));
+  const main = $("main");
+  main.insertBefore(faixa, main.firstChild);
 }
 
 // Chamada sempre que a sessão muda (entrou, saiu, link clicado).
@@ -187,6 +264,8 @@ async function aplicarSessao(nova) {
   pintarIdentidade();
   fecharModal();
   carregar();
+  // Convite para instalar: só no celular, só se ainda não instalou nem dispensou.
+  if (/android|iphone|ipad|ipod/i.test(navigator.userAgent)) setTimeout(mostrarFaixaInstalar, 1200);
 }
 
 // ============================================================
@@ -940,6 +1019,9 @@ function iniciar() {
     aplicarSessao(nova);
   });
   db.auth.getSession().then(({ data }) => aplicarSessao(data.session));
+
+  // Deixa o app instalável e abrindo mesmo sem internet (com o que estava em cache).
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 
   // Atualização automática: a cada 15s, e só com a aba visível.
   setInterval(() => {

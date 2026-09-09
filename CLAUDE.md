@@ -27,6 +27,20 @@ publicamente junto com o app.
 - `docs/app.js` — toda a lógica.
 - `schema.sql` — tabelas, índice de unicidade e políticas RLS.
 
+## App instalável (PWA)
+- `docs/manifest.webmanifest` + `docs/sw.js` + ícones em `docs/icones/` (gerados do
+  `icones/icone.svg`; a versão "maskable" tem a arte a 78% para o recorte do Android).
+- O service worker cacheia só a casca (rede primeiro para código; cache primeiro para
+  capas/ícones). **Nunca cacheia o Supabase.** Para forçar atualização do cache,
+  troque `VERSAO` em `sw.js`.
+- Convite de instalação: `mostrarFaixaInstalar()` (só celular, só depois do login,
+  respeita "Agora não" em localStorage) e `instalar()` (prompt nativo no Android;
+  passo a passo do Safari no iPhone). Também no menu da conta.
+- **Login dentro do app instalado:** no iPhone, o link do e-mail abre no Safari, fora do
+  app, e a sessão não chega ao app. Por isso a tela "Olhe o seu e-mail" aceita o
+  **código de 6 dígitos** (`verifyOtp`, type "email"). O código só vem no e-mail se o
+  template "Magic Link" do Supabase incluir `{{ .Token }}` — passo manual no painel.
+
 ## Identidade visual
 Paleta ameixa com quatro cores de seção — fila (mostarda), votação (ameixa),
 agenda (coral), resenhas (verde-azulado). Tipografia: **Fraunces** nos títulos,

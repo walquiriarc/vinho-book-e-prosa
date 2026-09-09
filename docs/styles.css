@@ -239,6 +239,20 @@ textarea { resize: vertical; min-height: 80px; }
 
 .vazio { color: var(--ink-3); font-size: 14.5px; padding: 18px 2px; }
 
+/* ---------- convite para instalar ---------- */
+.faixa-instalar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--wash); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--r); padding: 12px 14px; margin-bottom: 14px; font-size: 14px; color: var(--ink-2);
+}
+.faixa-instalar .icone-app { width: 40px; height: 40px; border-radius: 10px; flex: none; }
+.faixa-instalar .texto { flex: 1 1 180px; }
+.faixa-instalar strong { color: var(--ink); }
+.passos { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: 14.5px; }
+.passos li { margin-bottom: 8px; }
+.codigo-input { font-family: "Space Mono", monospace; font-size: 22px; letter-spacing: .25em; text-align: center; }
+@media (display-mode: standalone) { .topo { padding-top: env(safe-area-inset-top); } }
+
 /* ---------- rodapé ---------- */
 .rodape {
   max-width: 880px; margin: 0 auto; padding: 16px 18px 30px;
