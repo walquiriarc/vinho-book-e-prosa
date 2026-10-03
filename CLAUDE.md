@@ -42,10 +42,13 @@ publicamente junto com o app.
   template "Magic Link" do Supabase incluir `{{ .Token }}` — passo manual no painel.
 
 ## Identidade visual
-Paleta ameixa com quatro cores de seção — fila (mostarda), votação (ameixa),
-agenda (coral), resenhas (verde-azulado). Tipografia: **Fraunces** nos títulos,
-**Karla** no texto, **Space Mono** em rótulos, datas e números.
-Tema claro e escuro completos.
+Siga **DESIGN.md** na raiz e `design-system/system.json`. Duas paletas com o mesmo
+peso: **Vinho & marfim** e **Oliva & rosé**. Cada uma funciona no claro e no escuro.
+Tipografia: **Cormorant Garamond** nos títulos e **Lato** no texto e nos controles.
+O VBP e o lettering são os SVGs originais em `docs/marca/logos/`.
+`docs/marca/brand.js` salva paleta/aparência no aparelho; `tokens.css` fornece as cores.
+O app continua sem build e sem dependências novas. As cores das seções herdam a
+assinatura; os nomes e estados acessíveis distinguem livros, votação, agenda e lidos.
 
 ## Tabelas
 - `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em, capa_url)` — status ∈ {fila, atual, lido}.

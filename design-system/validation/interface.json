@@ -1,0 +1,30 @@
+{
+  "status": "pass",
+  "screenChecks": 64,
+  "widths": [
+    320,
+    390,
+    768,
+    1280
+  ],
+  "modes": [
+    "vinho-light",
+    "vinho-dark",
+    "oliva-light",
+    "oliva-dark"
+  ],
+  "extraChecks": [
+    "theme persistence",
+    "OS appearance",
+    "storage blocked",
+    "keyboard selection",
+    "44px targets",
+    "200% text reflow",
+    "form text preservation",
+    "review draft preservation",
+    "login gate"
+  ],
+  "databaseWrites": 0,
+  "errors": [],
+  "scope": "Chromium headless com Supabase simulado; nenhuma sessão ou escrita real."
+}

@@ -1,6 +1,6 @@
 # Vinho, Book e Prosa — guia de montagem (passo a passo)
 
-Um app web para o clube: **fila de livros, votação, agenda de encontros e resenhas** — com os dados compartilhados entre as 8 membras. Todas acessam por **um único link**, do celular ou do computador, sem instalar nada. O visual segue a identidade do clube e acompanha o tema claro ou escuro do aparelho de cada uma.
+Um app web para o clube: **fila de livros, votação, agenda de encontros e resenhas** — com os dados compartilhados entre as 8 membras. Todas acessam por **um único link**, do celular ou do computador, sem instalar nada. O visual oferece as duas expressões da marca, **Vinho & marfim** e **Oliva & rosé**, e acompanha a aparência clara ou escura do aparelho de cada uma. A escolha pode ser feita no cabeçalho e fica salva no dispositivo.
 
 O banco já está criado e conectado. Falta você **trocar os nomes das amigas no `config.js`** e **publicar o link**. Tempo estimado: **10 minutos**.
 
@@ -147,3 +147,8 @@ clique. Isso foi testado tentando apagar de propósito: o registro sobreviveu.
 **Perco os dados se atualizar o app?** Não. Os dados ficam no Supabase, separados do app. Você pode republicar à vontade.
 
 **Funciona no celular?** Sim, o layout se adapta. As membras podem até "adicionar à tela inicial" pelo navegador para virar um ícone parecido com app.
+
+
+## Identidade visual do aplicativo
+
+O pacote está documentado em [design-system/README.md](design-system/README.md). As duas paletas oferecem os mesmos recursos e têm versões claras e escuras. Os arquivos prontos ficam em `docs/marca/`, e o contrato visual está em [DESIGN.md](DESIGN.md). Não é preciso instalar framework ou executar build.
