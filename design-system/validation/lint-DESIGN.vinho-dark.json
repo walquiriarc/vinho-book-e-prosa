@@ -1,0 +1,93 @@
+{
+  "findings": [
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.button-primary",
+      "message": "textColor (#211D1A) sobre backgroundColor (#E7B7B9) = 9.46:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.button-primary-hover",
+      "message": "textColor (#211D1A) sobre backgroundColor (#EECBCD) = 11.20:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.button-primary-active",
+      "message": "textColor (#211D1A) sobre backgroundColor (#F3DADB) = 12.64:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.button-disabled",
+      "message": "textColor (#D1C0B3) sobre backgroundColor (#3F3530) = 6.75:1 — estado inativo, isento de contraste mínimo (WCAG 1.4.3)."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.card",
+      "message": "textColor (#F6F0E7) sobre backgroundColor (#2B2521) = 13.34:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.page",
+      "message": "textColor (#F6F0E7) sobre backgroundColor (#211D1A) = 14.77:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.muted",
+      "message": "textColor (#D1C0B3) sobre backgroundColor (#211D1A) = 9.48:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.layer",
+      "message": "textColor (#F6F0E7) sobre backgroundColor (#352C28) = 12.02:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.badge-brand",
+      "message": "textColor (#E7B7B9) sobre backgroundColor (#462A2E) = 7.28:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.status-success",
+      "message": "textColor (#B9CEA7) sobre backgroundColor (#2D3829) = 7.28:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.status-warning",
+      "message": "textColor (#E3C897) sobre backgroundColor (#3F3421) = 7.52:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.status-error",
+      "message": "textColor (#E9AAA9) sobre backgroundColor (#432A2C) = 6.72:1 — PASS AA."
+    },
+    {
+      "severity": "info",
+      "rule": "contrast-ratio",
+      "path": "components.status-info",
+      "message": "textColor (#BBD0E0) sobre backgroundColor (#273440) = 8.00:1 — PASS AAA."
+    },
+    {
+      "severity": "info",
+      "rule": "token-summary",
+      "path": "",
+      "message": "colors: 26, typography: 12, components: 19, rounded: 3, spacing: 12."
+    }
+  ],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 14
+  }
+}
