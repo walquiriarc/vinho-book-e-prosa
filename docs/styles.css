@@ -198,6 +198,40 @@ textarea { resize: vertical; min-height: 80px; }
 .selo.fila { --c: var(--livros); }
 .selo.atual { --c: var(--votacao); }
 .selo.lido { --c: var(--lidos); }
+.selo.tipo-serie, .selo.tipo-filme { --c: var(--ink-2); }
+.selo.cinema { --c: var(--agenda); }
+.selo.aniversario { --c: var(--votacao); }
+
+/* ---------- filtro de "Quero ler" por tipo ---------- */
+.filtros { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.filtro {
+  background: var(--surface); border: 1px solid var(--line-forte); border-radius: 999px;
+  padding: 6px 13px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); min-height: 36px;
+}
+.filtro[aria-pressed="true"] { background: var(--livros); border-color: var(--livros); color: var(--sobre); font-weight: 600; }
+.contagem-filtro { font-family: "Space Mono", monospace; font-size: 11px; opacity: .8; }
+
+/* ---------- progresso de leitura ---------- */
+.progresso { grid-column: 1 / -1; margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.progresso-topo .linha-mono { white-space: nowrap; }
+.progresso-linha .quem { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progresso-lista, .lista-aniversarios { list-style: none; margin: 0; padding: 0; }
+.progresso-linha, .aniversario-linha { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.progresso-linha .avatar, .aniversario-linha .avatar { width: 26px; height: 26px; font-size: 10px; }
+.progresso-corpo { flex: 1; min-width: 0; }
+.progresso-topo { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.progresso-linha .quem, .aniversario-linha .quem { font-size: 14px; font-weight: 700; }
+.progresso-linha.eu .quem::after { content: " (você)"; font-weight: 400; color: var(--ink-3); }
+.sem-marca { opacity: .6; }
+.barra-paginas { margin-top: 5px; height: 5px; }
+.barra-paginas > i { background: var(--livros); }
+.form-progresso { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.campo-pagina { flex: 0 1 150px; }
+.form-progresso .btn { min-height: 40px; }
+.aniversario-linha .linha-mono { margin-top: 0; flex: 1; }
+.item.aniversario { background: var(--wash); }
+.campo-dia { flex: 0 1 90px; }
+.convite { font-size: 14px; line-height: 1.5; }
 
 .data-bloco {
   flex: none; width: 54px; text-align: center; padding: 7px 0;

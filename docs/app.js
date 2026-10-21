@@ -24,7 +24,7 @@ try {
 }
 
 // ---- Estado em memória ----
-const estado = { livros: [], votos: [], encontros: [], presencas: [], resenhas: [] };
+const estado = { livros: [], votos: [], encontros: [], presencas: [], resenhas: [], progressos: [], membras: [] };
 let jaCarregouUmaVez = false;
 
 // ============================================================
@@ -65,6 +65,19 @@ async function buscarCapa(titulo, autor) {
 // e pode voltar — por isso o banco nem tem permissão para excluir linhas.
 function naoArquivados(lista) { return lista.filter((x) => !x.arquivado); }
 function arquivados(lista) { return lista.filter((x) => x.arquivado); }
+
+// A lista "Quero ler" aceita livros, séries e filmes. A tabela continua se
+// chamando "livros"; a coluna "tipo" diz o que cada item é. Só livro vira
+// "Lendo agora" e só livro entra na votação — série e filme não disputam
+// a próxima leitura do clube.
+const TIPOS = {
+  livro: { nome: "Livro", fila: "Quero ler", atual: "Lendo agora", lido: "Lido",  verbo: "lido" },
+  serie: { nome: "Série", fila: "Quero ver", atual: "Vendo agora",  lido: "Vista", verbo: "visto" },
+  filme: { nome: "Filme", fila: "Quero ver", atual: "Vendo agora",  lido: "Visto", verbo: "visto" },
+};
+function tipoDe(l) { return TIPOS[l.tipo] ? l.tipo : "livro"; }
+function ehLivro(l) { return tipoDe(l) === "livro"; }
+function rotuloStatus(l) { return TIPOS[tipoDe(l)][l.status] || l.status; }
 
 // ============================================================
 //  ENTRADA NO CLUBE — login por e-mail
@@ -178,14 +191,78 @@ function abrirMenuConta() {
     titulo: membra,
     explica: sessao && sessao.user ? "Você entrou com " + sessao.user.email + "." : "",
     corpo: '<div class="escolha-lista">' +
+      '<button type="button" class="escolha" id="btn-nova-membra">Cadastrar uma amiga nova</button>' +
       (jaInstalado() ? "" : '<button type="button" class="escolha" id="btn-instalar-menu">Instalar na tela inicial</button>') +
       '<button type="button" class="escolha" id="btn-sair-conta">Sair do clube neste aparelho</button></div>',
     aoAbrir(modal) {
+      modal.querySelector("#btn-nova-membra").addEventListener("click", () => cadastrarMembra());
       const bi = modal.querySelector("#btn-instalar-menu");
       if (bi) bi.addEventListener("click", () => { fecharModal(); instalar(); });
       modal.querySelector("#btn-sair-conta").addEventListener("click", async () => {
         fecharModal();
         await db.auth.signOut();
+      });
+    },
+  });
+}
+
+// ============================================================
+//  CADASTRAR UMA MEMBRA NOVA — pelo app, sem abrir o painel do banco
+//  E-mail e apelido bastam: é o e-mail que abre a porta, e o apelido
+//  é como ela aparece para as outras. O e-mail não muda depois (o
+//  banco recusa), então vale conferir antes de salvar.
+// ============================================================
+function cadastrarMembra(erro) {
+  abrirModal({
+    titulo: "Cadastrar uma amiga nova",
+    explica: "Ela entra com esse e-mail, do jeito que você digitar aqui. O apelido é como ela aparece nos votos e nas resenhas.",
+    corpo: '<form id="form-membra">' +
+      '<label class="campo"><span>E-mail dela</span><input type="email" name="email" required autocomplete="off" inputmode="email" placeholder="amiga@exemplo.com"></label>' +
+      '<label class="campo" style="margin-top:10px"><span>Apelido</span><input name="nome" required maxlength="40" placeholder="Como vocês a chamam"></label>' +
+      (erro ? '<p class="explica" style="color:var(--erro);margin-top:10px">' + esc(erro) + "</p>" : "") +
+      '<div class="modal-acoes" style="margin-top:14px"><button type="submit" class="btn">Cadastrar</button></div></form>',
+    aoAbrir(modal) {
+      const f = modal.querySelector("#form-membra");
+      setTimeout(() => f.email.focus(), 60);
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const email = f.email.value.trim().toLowerCase();
+        const nome = f.nome.value.trim();
+        if (!email || !nome) return;
+        if (estado.membras.some((m) => m.email === email)) { cadastrarMembra("Esse e-mail já está cadastrado: é " + estado.membras.find((m) => m.email === email).nome + "."); return; }
+        if (estado.membras.some((m) => m.nome.toLowerCase() === nome.toLowerCase())) { cadastrarMembra("Já existe uma " + nome + " no clube. Escolha um apelido diferente para não confundir."); return; }
+        const botaoSalvar = f.querySelector("button");
+        const ok = await gravar("cadastrar a membra",
+          () => db.from("membras").insert({ email, nome }), botaoSalvar);
+        if (ok) mostrarConvite(nome, email);
+      });
+    },
+  });
+}
+
+// Depois do cadastro: um convite pronto para mandar no WhatsApp, com o
+// endereço do app e o e-mail que ela deve usar.
+function mostrarConvite(nome, email) {
+  const link = location.origin + location.pathname;
+  const texto = "Oi, " + nome + "! Você já está no app do " + (cfg.NOME_DO_CLUBE || "clube") + ": " + link +
+    "\nEntre com o e-mail " + email + " e digite o código de 6 dígitos que chega na caixa de entrada (olhe o spam também).";
+  abrirModal({
+    titulo: nome + " está no clube",
+    explica: "Falta só avisar. Mande o convite abaixo para ela — o app abre pelo link e ela entra com o e-mail cadastrado.",
+    corpo: '<textarea class="convite" readonly rows="5" aria-label="Texto do convite">' + esc(texto) + "</textarea>" +
+      '<div class="escolha-lista" style="margin-top:12px"><button type="button" class="escolha" id="btn-copiar-convite">' +
+      (navigator.share ? "Mandar o convite" : "Copiar o convite") + "</button></div>",
+    aoAbrir(modal) {
+      modal.querySelector("#btn-copiar-convite").addEventListener("click", async (ev) => {
+        try {
+          if (navigator.share) { await navigator.share({ text: texto }); return; }
+          await navigator.clipboard.writeText(texto);
+          ev.target.textContent = "Copiado! Agora é só colar no WhatsApp.";
+        } catch (e) {
+          if (e && e.name === "AbortError") return;   // ela fechou a janela de compartilhar
+          const ta = modal.querySelector(".convite"); ta.focus(); ta.select();
+          avisar("Não deu para copiar sozinho. O texto está selecionado: copie e cole no WhatsApp.", "erro");
+        }
       });
     },
   });
@@ -365,13 +442,15 @@ async function carregar({ silencioso = false } = {}) {
   if (!db) { status(problemaConfig || "Banco não configurado", "erro"); return; }
   if (!membra) return;   // fora do clube não há o que carregar
   try {
-    const tabelas = ["livros", "votos", "encontros", "presencas", "resenhas"];
+    const tabelas = ["livros", "votos", "encontros", "presencas", "resenhas", "progressos", "membras"];
     const respostas = await Promise.all([
       db.from("livros").select("*").order("criado_em", { ascending: true }),
       db.from("votos").select("*"),
       db.from("encontros").select("*").order("data", { ascending: true }),
       db.from("presencas").select("*"),
       db.from("resenhas").select("*").order("criado_em", { ascending: true }),
+      db.from("progressos").select("*"),
+      db.from("membras").select("*").order("criado_em", { ascending: true }),
     ]);
     respostas.forEach((r, i) => {
       if (r.error) { r.error.tabela = tabelas[i]; throw r.error; }
@@ -504,6 +583,29 @@ function destinoEscolhido() {
   const r = document.querySelector('input[name="destino"]:checked');
   return r ? r.value : "fila";
 }
+function tipoEscolhido() {
+  const r = document.querySelector('input[name="tipo"]:checked');
+  return r && TIPOS[r.value] ? r.value : "livro";
+}
+
+// O formulário muda de roupa conforme o tipo: série e filme não viram
+// "Lendo agora" (a leitura atual é sempre um livro) e falam em "ver".
+function atualizarTipoForm() {
+  const tipo = tipoEscolhido();
+  const t = TIPOS[tipo];
+  const livro = tipo === "livro";
+  $("#titulo-form-livro").textContent = "Adicionar " + t.nome.toLowerCase();
+  $("#btn-add-livro").textContent = "Adicionar " + t.nome.toLowerCase();
+  $("#novo-titulo").placeholder = "Nome d" + (tipo === "serie" ? "a série" : tipo === "filme" ? "o filme" : "o livro");
+  $("#rotulo-autor").textContent = livro ? "Autoria" : "Baseado em (livro ou autoria)";
+  $("#rotulo-destino-fila").textContent = t.fila;
+  $("#rotulo-destino-lido").textContent = livro ? "Já lido" : "Já " + t.verbo;
+  $("#rotulo-terminado").textContent = (livro ? "Terminado" : "Visto") + " em";
+  const opcaoAtual = $("#opcao-destino-atual");
+  opcaoAtual.hidden = !livro;
+  if (!livro && destinoEscolhido() === "atual") document.querySelector('input[name="destino"][value="fila"]').checked = true;
+  atualizarDicaDestino();
+}
 
 // A dica embaixo das opções: avisa o que acontece com o livro atual e
 // mostra o campo de data só quando o destino é "já lido".
@@ -531,32 +633,36 @@ async function addLivro(ev) {
   const campoAutor = $("#novo-autor");
   const titulo = campoTitulo.value.trim();
   const autor = campoAutor.value.trim();
-  const destino = destinoEscolhido();
+  const tipo = tipoEscolhido();
+  // Série e filme nunca entram como "Lendo agora": a leitura atual é um livro.
+  const destino = tipo !== "livro" && destinoEscolhido() === "atual" ? "fila" : destinoEscolhido();
   const terminado = $("#novo-terminado").value || hojeISO();
   if (!titulo) { campoTitulo.focus(); return; }
 
+  const t = TIPOS[tipo];
   const anterior = destino === "atual" ? naoArquivados(estado.livros).find((l) => l.status === "atual") : null;
   const mensagem =
     destino === "lido"  ? '"' + titulo + '" guardado em Lidos. Dê a sua nota!' :
     destino === "atual" ? (anterior ? '"' + titulo + '" é a leitura atual. "' + anterior.titulo + '" voltou para Quero ler.'
                                     : '"' + titulo + '" é a leitura atual.') :
-                          '"' + titulo + '" entrou em Quero ler.';
+                          '"' + titulo + '" entrou em ' + t.fila + ".";
 
   let novoId = null;
-  const ok = await gravar("adicionar o livro", async () => {
+  const ok = await gravar("adicionar o " + t.nome.toLowerCase(), async () => {
     if (anterior) {
       const r = await db.from("livros").update({ status: "fila" }).eq("id", anterior.id);
       if (r.error) return r;
     }
-    const linha = { titulo, autor, sugerido_por: membra, status: destino };
+    const linha = { titulo, autor, sugerido_por: membra, status: destino, tipo };
     if (destino === "lido") linha.terminado_em = terminado;
     const ins = await db.from("livros").insert(linha).select("id").single();
     if (!ins.error && ins.data) novoId = ins.data.id;
     return ins;
   }, $("#btn-add-livro"), mensagem);
 
-  if (ok && novoId) {
+  if (ok && novoId && tipo === "livro") {
     // Em segundo plano: se achar capa, guarda e redesenha. Não trava nada.
+    // (Só para livros: a Open Library não tem capa de série nem de filme.)
     buscarCapa(titulo, autor).then((url) => {
       if (!url) return;
       db.from("livros").update({ capa_url: url }).eq("id", novoId).then(() => carregar({ silencioso: true }));
@@ -566,6 +672,7 @@ async function addLivro(ev) {
     campoTitulo.value = ""; campoAutor.value = ""; $("#novo-terminado").value = "";
     const padrao = document.querySelector('input[name="destino"][value="fila"]');
     if (padrao) padrao.checked = true;
+    if (filtroTipo !== "tudo" && filtroTipo !== tipo) { filtroTipo = "tudo"; renderLivros(); }   // para o item novo aparecer na lista
     atualizarDicaDestino();
     if (destino === "lido") trocarAba("lidos", novoId);
     else campoTitulo.focus();
@@ -609,7 +716,8 @@ async function alterarDataLido(livro, btn) {
 function temHistorico(l) {
   return estado.votos.some((v) => v.livro_id === l.id && v.ativo !== false)
       || estado.resenhas.some((r) => r.livro_id === l.id)
-      || estado.encontros.some((e) => e.livro_id === l.id);
+      || estado.encontros.some((e) => e.livro_id === l.id)
+      || estado.progressos.some((p) => p.livro_id === l.id);
 }
 async function excluirLivro(livro, btn) {
   if (!confirm('Excluir "' + livro.titulo + '" de vez?\n\nEle não tem voto, resenha nem encontro ligado, então nada se perde. Mas não dá para desfazer.')) return;
@@ -638,29 +746,135 @@ async function restaurarLivro(livro, btn) {
     btn, "Livro de volta na lista.");
 }
 
+// O selo do cartão: "Quero ler" para livro; "Série · quero ver" para o resto,
+// para ninguém confundir um filme com a próxima leitura.
+function seloHtml(l) {
+  const t = TIPOS[tipoDe(l)];
+  const texto = ehLivro(l) ? rotuloStatus(l) : t.nome + " · " + rotuloStatus(l).toLowerCase();
+  return '<span class="selo ' + esc(l.status) + " tipo-" + esc(tipoDe(l)) + '">' + esc(texto) + "</span>";
+}
+
 function cartaoLivro(l) {
   const partes = [];
   if (l.autor) partes.push("de " + esc(l.autor));
   if (l.sugerido_por) partes.push("sugerido por " + esc(l.sugerido_por));
-  const rotuloSelo = { fila: "Quero ler", atual: "Lendo agora", lido: "Lido" }[l.status] || l.status;
+  const t = TIPOS[tipoDe(l)];
 
   const c = el('<article class="item com-capa" id="livro-' + esc(l.id) + '">' + capaHtml(l) +
-    '<div class="corpo"><span class="selo ' + esc(l.status) + '">' + esc(rotuloSelo) + "</span>" +
+    '<div class="corpo">' + seloHtml(l) +
     '<div class="titulo">' + esc(l.titulo) + "</div>" +
     (partes.length ? '<div class="meta">' + partes.join(" · ") + "</div>" : "") +
     '<div class="acoes"></div></div></article>');
+
+  // A leitura atual mostra em que página cada uma está (abaixo da capa, na largura toda).
+  if (l.status === "atual" && !l.arquivado) c.appendChild(blocoProgresso(l));
 
   const acoes = c.querySelector(".acoes");
   if (l.arquivado) {
     acoes.appendChild(botao("Trazer de volta", "btn fantasma mini", (b) => restaurarLivro(l, b)));
   } else {
-    if (l.status === "fila") acoes.appendChild(botao("Definir como leitura atual", "btn fantasma mini", (b) => definirAtual(l.id, b)));
+    if (l.status === "fila" && ehLivro(l)) acoes.appendChild(botao("Definir como leitura atual", "btn fantasma mini", (b) => definirAtual(l.id, b)));
+    if (l.status === "fila" && !ehLivro(l)) acoes.appendChild(botao("Já " + (l.tipo === "serie" ? "vi a série" : "vi o filme"), "btn fantasma mini",
+      (b) => mudarStatus(l.id, "lido", b, "Guardado em Lidos. Dê a sua nota!").then((ok) => { if (ok) trocarAba("lidos", l.id); })));
     if (l.status === "atual") acoes.appendChild(botao("Marcar como lido", "btn fantasma mini",
       (b) => mudarStatus(l.id, "lido", b, "Guardado em Lidos. Dê a sua nota!").then((ok) => { if (ok) trocarAba("lidos", l.id); })));
-    if (l.status === "lido") acoes.appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
+    if (l.status === "lido") acoes.appendChild(botao("Voltar para " + t.fila, "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, t.nome + " voltou para " + t.fila + ".")));
     acoes.appendChild(botaoRemover(l));
   }
   return c;
+}
+
+// ---- progresso de leitura: em que página cada uma está no livro atual ----
+function meuProgresso(livroId) { return estado.progressos.find((p) => p.livro_id === livroId && p.membra === membra); }
+
+async function salvarProgresso(livro, pagina, btn) {
+  const existente = meuProgresso(livro.id);
+  const dados = { pagina, atualizado_em: new Date().toISOString() };
+  const terminou = livro.paginas && pagina >= livro.paginas;
+  await gravar("marcar a página",
+    () => existente
+      ? db.from("progressos").update(dados).eq("id", existente.id)
+      : db.from("progressos").insert({ livro_id: livro.id, membra, ...dados }),
+    btn, terminou ? "Você chegou ao fim! Quando o clube terminar, marque o livro como lido." : "Página " + pagina + " marcada.");
+}
+function alterarTotalPaginas(livro, btn) {
+  abrirModal({
+    titulo: "Quantas páginas tem?",
+    explica: '"' + livro.titulo + '" — com o total, o app mostra a porcentagem de cada uma.',
+    corpo: '<form id="form-paginas"><label class="campo campo-estreito"><span>Total de páginas</span>' +
+      '<input type="number" name="paginas" inputmode="numeric" min="1" max="9999" required value="' + esc(livro.paginas || "") + '"></label>' +
+      '<div class="modal-acoes"><button type="submit" class="btn">Salvar</button></div></form>',
+    aoAbrir(modal) {
+      const f = modal.querySelector("#form-paginas");
+      setTimeout(() => f.paginas.focus(), 60);
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const paginas = Number(f.paginas.value);
+        if (!(paginas > 0)) return;
+        fecharModal();
+        await gravar("guardar o total de páginas", () => db.from("livros").update({ paginas }).eq("id", livro.id), btn, "Total de páginas guardado.");
+      });
+    },
+  });
+}
+
+function blocoProgresso(l) {
+  const total = l.paginas || 0;
+  const marcas = estado.progressos.filter((p) => p.livro_id === l.id);
+  // Todas as membras, na ordem de quem está mais adiantada; quem não marcou vai ao fim.
+  const nomes = estado.membras.length ? estado.membras.map((m) => m.nome) : marcas.map((p) => p.membra);
+  const linhas = nomes.map((nome) => ({ nome, p: marcas.find((p) => p.membra === nome) }))
+    .sort((a, b) => ((b.p ? b.p.pagina : -1) - (a.p ? a.p.pagina : -1)) || a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const bloco = el('<div class="progresso"><div class="rotulo-editor">Onde cada uma está</div><ul class="progresso-lista"></ul></div>');
+  const lista = bloco.querySelector(".progresso-lista");
+  linhas.forEach(({ nome, p }) => {
+    const pct = p && total ? Math.min(100, Math.round((p.pagina / total) * 100)) : null;
+    const terminou = p && total && p.pagina >= total;
+    const texto = !p ? "ainda não marcou"
+      : terminou ? "terminou"
+      : "p. " + p.pagina + (total ? " de " + total + " · " + pct + "%" : "");
+    lista.appendChild(el('<li class="progresso-linha' + (p ? "" : " sem-marca") + (nome === membra ? " eu" : "") + '">' +
+      avatarHtml(nome) + '<div class="progresso-corpo"><div class="progresso-topo"><span class="quem">' + esc(nome) + '</span>' +
+      '<span class="linha-mono" style="margin-top:0">' + esc(texto) + "</span></div>" +
+      (pct !== null ? '<div class="barra-votos barra-paginas" aria-hidden="true"><i style="width:' + pct + '%"></i></div>' : "") +
+      "</div></li>"));
+  });
+
+  // O meu campo: número da página + Salvar. Teclado numérico no celular.
+  const meu = meuProgresso(l.id);
+  const form = el('<form class="form-progresso"><label class="campo campo-pagina"><span>Estou na página</span>' +
+    '<input type="number" inputmode="numeric" min="0" ' + (total ? 'max="' + total + '" ' : "") + 'name="pagina" required value="' + (meu ? esc(meu.pagina) : "") + '"></label></form>');
+  const salvar = botao("Salvar", "btn mini", (b) => {
+    const n = Number(form.pagina.value);
+    if (!(n >= 0) || form.pagina.value === "") { avisar("Digite o número da página.", "erro"); form.pagina.focus(); return; }
+    salvarProgresso(l, n, b);
+  });
+  form.appendChild(salvar);
+  form.addEventListener("submit", (ev) => { ev.preventDefault(); salvar.click(); });
+  form.appendChild(botao(total ? "Total: " + total + " p." : "Informar total de páginas", "btn fantasma mini", (b) => alterarTotalPaginas(l, b)));
+  bloco.appendChild(form);
+  return bloco;
+}
+
+// ---- filtro de "Quero ler" por tipo (só aparece quando há série ou filme) ----
+let filtroTipo = "tudo";
+function renderFiltroTipo(fila) {
+  const cont = $("#filtro-tipo");
+  cont.innerHTML = "";
+  const contagem = { tudo: fila.length };
+  fila.forEach((l) => { contagem[tipoDe(l)] = (contagem[tipoDe(l)] || 0) + 1; });
+  const temMistura = Object.keys(TIPOS).filter((t) => contagem[t]).length > 1;
+  cont.hidden = !temMistura;
+  if (!temMistura) { filtroTipo = "tudo"; return; }
+  if (filtroTipo !== "tudo" && !contagem[filtroTipo]) filtroTipo = "tudo";
+  [["tudo", "Tudo"], ["livro", "Livros"], ["serie", "Séries"], ["filme", "Filmes"]].forEach(([valor, rotulo]) => {
+    if (valor !== "tudo" && !contagem[valor]) return;
+    const b = el('<button type="button" class="filtro" aria-pressed="' + (filtroTipo === valor) + '">' + esc(rotulo) +
+      ' <span class="contagem-filtro">' + contagem[valor] + "</span></button>");
+    b.addEventListener("click", () => { filtroTipo = valor; renderLivros(); });
+    cont.appendChild(b);
+  });
 }
 
 function renderLivros() {
@@ -672,8 +886,10 @@ function renderLivros() {
   const vivos = naoArquivados(estado.livros);
   bloco($("#lista-atual"), vivos.filter((l) => l.status === "atual"),
     "Nenhum livro em leitura. Escolha um em Quero ler, ou adicione acima como \"Lendo agora\".");
-  bloco($("#lista-fila"), vivos.filter((l) => l.status === "fila"),
-    "Nada em Quero ler ainda. Adicione um livro no formulário acima.");
+  const fila = vivos.filter((l) => l.status === "fila");
+  renderFiltroTipo(fila);
+  bloco($("#lista-fila"), fila.filter((l) => filtroTipo === "tudo" || tipoDe(l) === filtroTipo),
+    "Nada em Quero ler ainda. Adicione um livro, uma série ou um filme no formulário acima.");
   atualizarDicaDestino();
 
   const guardados = arquivados(estado.livros);
@@ -702,8 +918,9 @@ async function alternarVoto(livroId, btn) {
 function renderVotacao() {
   const cont = $("#lista-votacao");
   cont.innerHTML = "";
+  // Só livros disputam a próxima leitura: série e filme ficam fora da votação.
   const fila = naoArquivados(estado.livros)
-    .filter((l) => l.status === "fila")
+    .filter((l) => l.status === "fila" && ehLivro(l))
     .map((l) => ({ ...l, votos: votosDo(l.id).length }))
     .sort((a, b) => b.votos - a.votos || a.titulo.localeCompare(b.titulo, "pt-BR"));
 
@@ -738,17 +955,33 @@ function renderVotacao() {
 //  ABA 3 — AGENDA
 //  BUG 7 — encontros passados não ficam mais no topo para sempre.
 // ============================================================
+// Dois tipos de evento: o encontro do clube e a sessão de cinema (quando vão
+// juntas ver a estreia de um filme baseado em livro). Aniversário não é
+// encontro: ele vem da tabela de membras e repete todo ano.
+function tipoEncontroEscolhido() {
+  const r = document.querySelector('input[name="tipo-encontro"]:checked');
+  return r && r.value === "cinema" ? "cinema" : "encontro";
+}
+function atualizarTipoEncontro() {
+  const cinema = tipoEncontroEscolhido() === "cinema";
+  $("#rotulo-local").textContent = cinema ? "Qual cinema" : "Onde";
+  $("#novo-local").placeholder = cinema ? "Cinema ou shopping" : "Endereço ou link da chamada";
+  $("#rotulo-encontro-livro").textContent = cinema ? "Filme (ou o livro que ele adapta)" : "Livro do encontro";
+  $("#btn-add-encontro").textContent = cinema ? "Marcar sessão" : "Marcar encontro";
+}
+
 async function addEncontro(ev) {
   ev.preventDefault();
   const data = $("#novo-data").value;
   const hora = $("#novo-hora").value;
   const local = $("#novo-local").value.trim();
   const livro_id = $("#novo-encontro-livro").value || null;
+  const tipo = tipoEncontroEscolhido();
   if (!data) { avisar("Escolha uma data para o encontro.", "erro"); $("#novo-data").focus(); return; }
 
-  const ok = await gravar("marcar o encontro",
-    () => db.from("encontros").insert({ data, hora, local, livro_id }),
-    $("#btn-add-encontro"), "Encontro marcado.");
+  const ok = await gravar(tipo === "cinema" ? "marcar a sessão" : "marcar o encontro",
+    () => db.from("encontros").insert({ data, hora, local, livro_id, tipo }),
+    $("#btn-add-encontro"), tipo === "cinema" ? "Sessão de cinema marcada. Confirme quem vai para contar os lugares no carro." : "Encontro marcado.");
   if (ok) { $("#novo-data").value = ""; $("#novo-hora").value = ""; $("#novo-local").value = ""; $("#novo-encontro-livro").value = ""; }
 }
 async function arquivarEncontro(en, btn) {
@@ -777,15 +1010,18 @@ function cartaoEncontro(en, passado) {
   const livro = estado.livros.find((l) => l.id === en.livro_id);
   const confirmadas = estado.presencas.filter((p) => p.encontro_id === en.id && p.confirmado !== false);
   const euVou = confirmadas.some((p) => p.membra === membra);
-  const detalhes = [en.hora ? esc(en.hora) : "", en.local ? esc(en.local) : "Local a definir"].filter(Boolean).join(" · ");
+  const cinema = en.tipo === "cinema";
+  const detalhes = [en.hora ? esc(en.hora) : "", en.local ? esc(en.local) : (cinema ? "Cinema a definir" : "Local a definir")].filter(Boolean).join(" · ");
+  const sobre = !livro ? "" : cinema ? " · filme " + esc(livro.titulo) : " · lendo " + esc(livro.titulo);
 
-  const c = el('<article class="item' + (passado ? " passado" : "") + '">' +
+  const c = el('<article class="item' + (passado ? " passado" : "") + (cinema ? " cinema" : "") + '">' +
     '<div class="topo-item">' +
       '<div class="data-bloco"><div class="dia">' + (d ? d.getDate() : "–") + "</div>" +
       '<div class="mes">' + (d ? MES_CURTO[d.getMonth()] : "") + "</div></div>" +
       "<div>" +
+        (cinema ? '<span class="selo cinema">Sessão de cinema</span>' : "") +
         '<div class="titulo">' + (d ? esc(dataPorExtenso(d)) : esc(en.data)) + "</div>" +
-        '<div class="meta">' + detalhes + (livro ? " · lendo " + esc(livro.titulo) : "") + "</div>" +
+        '<div class="meta">' + detalhes + sobre + "</div>" +
         (d ? '<div class="contagem">' + esc(quando(diasAte(d))) + "</div>" : "") +
         '<div class="presentes"></div>' +
         '<div class="acoes"></div>' +
@@ -812,6 +1048,77 @@ function cartaoEncontro(en, passado) {
   return c;
 }
 
+// ---- aniversários: vêm da tabela de membras e repetem todo ano ----
+const MES_LONGO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function temAniversario(m) { return m.aniversario_dia >= 1 && m.aniversario_mes >= 1; }
+// A próxima vez que esse dia e mês acontecem, a partir de hoje.
+function proximoAniversario(m) {
+  const h = hoje();
+  let d = new Date(h.getFullYear(), m.aniversario_mes - 1, m.aniversario_dia);
+  if (d < h) d = new Date(h.getFullYear() + 1, m.aniversario_mes - 1, m.aniversario_dia);
+  return d;
+}
+function aniversarioPorExtenso(m) { return m.aniversario_dia + " de " + MES_LONGO[m.aniversario_mes - 1]; }
+
+function cartaoAniversario(m, d) {
+  const n = diasAte(d);
+  const euMesma = m.nome === membra;
+  const c = el('<article class="item aniversario">' +
+    '<div class="topo-item">' +
+      '<div class="data-bloco"><div class="dia">' + d.getDate() + '</div><div class="mes">' + MES_CURTO[d.getMonth()] + "</div></div>" +
+      "<div>" +
+        '<span class="selo aniversario">Aniversário</span>' +
+        '<div class="titulo">' + (euMesma ? "O seu aniversário" : "Aniversário da " + esc(m.nome)) + "</div>" +
+        '<div class="meta">' + esc(dataPorExtenso(d)) + " · todo ano</div>" +
+        '<div class="contagem">' + (n === 0 ? "é hoje! Parabéns" + (euMesma ? "!" : ", " + esc(m.nome) + "!") : esc(quando(n))) + "</div>" +
+      "</div>" +
+    "</div></article>");
+  return c;
+}
+
+function alterarAniversario(m, btn) {
+  const opcoes = MES_LONGO.map((nome, i) => '<option value="' + (i + 1) + '"' + (m.aniversario_mes === i + 1 ? " selected" : "") + ">" + nome + "</option>").join("");
+  abrirModal({
+    titulo: m.nome === membra ? "O seu aniversário" : "Aniversário da " + m.nome,
+    explica: "Só dia e mês. O app lembra todo ano, na agenda.",
+    corpo: '<form id="form-aniversario"><div class="linha-form">' +
+      '<label class="campo campo-dia"><span>Dia</span><input type="number" name="dia" inputmode="numeric" min="1" max="31" required value="' + esc(m.aniversario_dia || "") + '"></label>' +
+      '<label class="campo"><span>Mês</span><select name="mes" required>' + (m.aniversario_mes ? "" : '<option value="">Escolha</option>') + opcoes + "</select></label></div>" +
+      '<div class="modal-acoes"><button type="submit" class="btn">Salvar</button></div></form>',
+    aoAbrir(modal) {
+      const f = modal.querySelector("#form-aniversario");
+      setTimeout(() => f.dia.focus(), 60);
+      f.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const dia = Number(f.dia.value), mes = Number(f.mes.value);
+        if (!(dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12)) { avisar("Confira o dia e o mês.", "erro"); return; }
+        fecharModal();
+        await gravar("guardar o aniversário",
+          () => db.from("membras").update({ aniversario_dia: dia, aniversario_mes: mes }).eq("id", m.id),
+          btn, "Aniversário guardado: " + dia + " de " + MES_LONGO[mes - 1] + ".");
+      });
+    },
+  });
+}
+
+function renderAniversarios() {
+  const cont = $("#lista-aniversarios");
+  cont.innerHTML = "";
+  if (!estado.membras.length) { cont.appendChild(el('<p class="vazio">A lista de membras não carregou.</p>')); return; }
+  // Em ordem de calendário a partir de hoje; quem não informou vai ao fim.
+  const ordem = estado.membras.map((m) => ({ m, d: temAniversario(m) ? proximoAniversario(m) : null }))
+    .sort((a, b) => (a.d && b.d) ? a.d - b.d : a.d ? -1 : b.d ? 1 : a.m.nome.localeCompare(b.m.nome, "pt-BR"));
+  const lista = el('<ul class="lista-aniversarios"></ul>');
+  ordem.forEach(({ m, d }) => {
+    const li = el('<li class="aniversario-linha' + (d ? "" : " sem-marca") + '">' + avatarHtml(m.nome) +
+      '<span class="quem">' + esc(m.nome) + "</span>" +
+      '<span class="linha-mono" style="margin-top:0">' + (d ? esc(aniversarioPorExtenso(m)) + (diasAte(d) === 0 ? " · é hoje!" : "") : "sem data") + "</span></li>");
+    li.appendChild(botao(d ? "Alterar" : "Informar", "btn fantasma mini", (b) => alterarAniversario(m, b)));
+    lista.appendChild(li);
+  });
+  cont.appendChild(lista);
+}
+
 function renderAgenda() {
   // seletor de livro do formulário (preserva o que estava escolhido)
   const selL = $("#novo-encontro-livro");
@@ -819,26 +1126,30 @@ function renderAgenda() {
     const escolhido = selL.value;
     selL.innerHTML = '<option value="">Nenhum (opcional)</option>';
     naoArquivados(estado.livros).filter((l) => l.status !== "lido").forEach((l) =>
-      selL.appendChild(el('<option value="' + esc(l.id) + '">' + esc(l.titulo) + "</option>")));
+      selL.appendChild(el('<option value="' + esc(l.id) + '">' + (ehLivro(l) ? "" : TIPOS[tipoDe(l)].nome + ": ") + esc(l.titulo) + "</option>")));
     selL.value = escolhido;
   }
+  renderAniversarios();
 
   const cont = $("#lista-encontros");
   cont.innerHTML = "";
   const guardados = arquivados(estado.encontros);
   const vivos = naoArquivados(estado.encontros);
-  if (!vivos.length && !guardados.length) {
+  // Aniversários dos próximos 60 dias entram no meio dos próximos encontros.
+  const aniversarios = estado.membras.filter(temAniversario)
+    .map((m) => ({ m, d: proximoAniversario(m) })).filter((x) => diasAte(x.d) <= 60);
+  if (!vivos.length && !guardados.length && !aniversarios.length) {
     cont.appendChild(el('<p class="vazio">Nenhum encontro marcado ainda.</p>'));
     return;
   }
 
   const comData = vivos.map((en) => ({ en, d: comoData(en.data) }));
-  const futuros = comData.filter((x) => x.d && diasAte(x.d) >= 0).sort((a, b) => a.d - b.d);
+  const futuros = comData.filter((x) => x.d && diasAte(x.d) >= 0).concat(aniversarios).sort((a, b) => a.d - b.d);
   const passados = comData.filter((x) => !x.d || diasAte(x.d) < 0).sort((a, b) => b.d - a.d);
 
   cont.appendChild(el('<h2 class="subtitulo">Próximos encontros</h2>'));
   if (!futuros.length) cont.appendChild(el('<p class="vazio">Nada marcado daqui pra frente.</p>'));
-  futuros.forEach((x) => cont.appendChild(cartaoEncontro(x.en, false)));
+  futuros.forEach((x) => cont.appendChild(x.m ? cartaoAniversario(x.m, x.d) : cartaoEncontro(x.en, false)));
 
   if (passados.length) {
     cont.appendChild(el('<h2 class="subtitulo">Já aconteceram</h2>'));
@@ -923,15 +1234,17 @@ function renderLidos() {
     const rascunho = lerRascunho(l.id);
 
     const c = el('<article class="item com-capa" id="livro-' + esc(l.id) + '">' + capaHtml(l) + '<div class="corpo">' +
+      (ehLivro(l) ? "" : seloHtml(l)) +
       '<div class="titulo">' + esc(l.titulo) + "</div>" +
       '<div class="meta">' + (l.autor ? "de " + esc(l.autor) + " · " : "") +
         (media ? "média " + media.toFixed(1).replace(".", ",") + " de 5 " + estrelasFixas(Math.round(media)) : "sem notas ainda") +
       "</div>" +
       '<div class="linha-data"><span class="linha-mono" style="margin-top:0">' +
-        (l.terminado_em ? "terminado em " + esc(dataCurta(l.terminado_em)) : "sem data de término") +
+        (l.terminado_em ? (ehLivro(l) ? "terminado em " : "visto em ") + esc(dataCurta(l.terminado_em)) : "sem data de término") +
       "</span></div></div></article>");
     c.querySelector(".linha-data").appendChild(botao(l.terminado_em ? "Alterar data" : "Informar data", "btn fantasma mini", (b) => alterarDataLido(l, b)));
-    c.querySelector(".linha-data").appendChild(botao("Voltar para Quero ler", "btn fantasma mini", (b) => mudarStatus(l.id, "fila", b, "Livro voltou para Quero ler.")));
+    c.querySelector(".linha-data").appendChild(botao("Voltar para " + TIPOS[tipoDe(l)].fila, "btn fantasma mini",
+      (b) => mudarStatus(l.id, "fila", b, TIPOS[tipoDe(l)].nome + " voltou para " + TIPOS[tipoDe(l)].fila + ".")));
     c.querySelector(".linha-data").appendChild(botaoRemover(l));
 
     // ---- editor da pessoa que está usando ----
@@ -941,7 +1254,7 @@ function renderLidos() {
       const rotulo = el('<div class="rotulo-editor">Sua nota, ' + esc(membra) + "</div>");
       editor.appendChild(rotulo);
 
-      const txt = el('<textarea placeholder="O que você achou do livro?"></textarea>');
+      const txt = el('<textarea placeholder="O que você achou d' + (l.tipo === "serie" ? "a série" : l.tipo === "filme" ? "o filme" : "o livro") + '?"></textarea>');
       txt.value = rascunho ? rascunho.texto : (minha ? minha.texto || "" : "");
 
       const marcarRascunho = () => {
@@ -1005,7 +1318,11 @@ function iniciar() {
 
   $("#form-livro").addEventListener("submit", addLivro);
   document.querySelectorAll('input[name="destino"]').forEach((r) => r.addEventListener("change", atualizarDicaDestino));
+  document.querySelectorAll('input[name="tipo"]').forEach((r) => r.addEventListener("change", atualizarTipoForm));
   $("#form-encontro").addEventListener("submit", addEncontro);
+  document.querySelectorAll('input[name="tipo-encontro"]').forEach((r) => r.addEventListener("change", atualizarTipoEncontro));
+  atualizarTipoForm();
+  atualizarTipoEncontro();
   $("#btn-atualizar").addEventListener("click", () => carregar());
 
   if (!db) { status(problemaConfig || "Banco não configurado", "erro"); return; }

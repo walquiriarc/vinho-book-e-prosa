@@ -192,3 +192,84 @@ $$;
 drop policy if exists excluir_livros on livros;
 create policy excluir_livros on livros for delete to authenticated
   using (public.eh_membra() and not public.livro_tem_historico(id));
+
+-- ============================================================
+--  Outubro de 2026 — progresso de leitura, séries e filmes,
+--  aniversários, sessões de cinema e cadastro de membras pelo app
+-- ------------------------------------------------------------
+--  Tudo aqui é aditivo: coluna nova, tabela nova, política nova.
+--  Nenhuma política existente ficou mais permissiva e continua
+--  não existindo política de delete. Pode rodar de novo sem quebrar.
+-- ============================================================
+
+-- 6) Tipo do item em "Quero ler": livro (padrão), série ou filme.
+--    Só livro vira "atual" e só livro entra na votação — o app cuida disso.
+alter table livros add column if not exists tipo text not null default 'livro';
+alter table livros drop constraint if exists livros_tipo_valido;
+alter table livros add constraint livros_tipo_valido check (tipo in ('livro', 'serie', 'filme'));
+
+-- 7) Total de páginas do livro (opcional): com ele o progresso vira porcentagem.
+alter table livros add column if not exists paginas int;
+alter table livros drop constraint if exists livros_paginas_positivas;
+alter table livros add constraint livros_paginas_positivas check (paginas is null or paginas > 0);
+
+-- 8) PROGRESSOS: em que página cada membra está em cada livro (1 linha por membra por livro).
+create table if not exists progressos (
+  id            uuid primary key default gen_random_uuid(),
+  livro_id      uuid not null references livros(id) on delete cascade,
+  membra        text not null,
+  pagina        int not null default 0 check (pagina >= 0),
+  atualizado_em timestamptz not null default now(),
+  criado_em     timestamptz not null default now(),
+  unique (livro_id, membra)
+);
+alter table progressos enable row level security;
+drop policy if exists ler_progressos on progressos;
+drop policy if exists criar_progressos on progressos;
+drop policy if exists editar_progressos on progressos;
+create policy ler_progressos on progressos for select to authenticated using (public.eh_membra());
+create policy criar_progressos on progressos for insert to authenticated with check (public.eh_membra());
+create policy editar_progressos on progressos for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
+
+-- Um livro com página marcada também "tem histórico": só arquiva, não exclui.
+create or replace function public.livro_tem_historico(livro uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from votos      v where v.livro_id = livro and v.ativo)
+      or exists (select 1 from resenhas   r where r.livro_id = livro)
+      or exists (select 1 from encontros  e where e.livro_id = livro)
+      or exists (select 1 from progressos p where p.livro_id = livro);
+$$;
+
+-- 9) Tipo do encontro: o encontro do clube (padrão) ou a sessão de cinema.
+alter table encontros add column if not exists tipo text not null default 'encontro';
+alter table encontros drop constraint if exists encontros_tipo_valido;
+alter table encontros add constraint encontros_tipo_valido check (tipo in ('encontro', 'cinema'));
+
+-- 10) Aniversário de cada membra: só dia e mês (repete todo ano, o ano não importa).
+alter table membras add column if not exists aniversario_dia smallint;
+alter table membras add column if not exists aniversario_mes smallint;
+alter table membras drop constraint if exists membras_aniversario_valido;
+alter table membras add constraint membras_aniversario_valido check (
+  (aniversario_dia is null and aniversario_mes is null)
+  or (aniversario_dia between 1 and 31 and aniversario_mes between 1 and 12)
+);
+
+-- 11) Cadastro de membra pelo app: uma membra logada pode acrescentar outra
+--     e guardar aniversários. O e-mail não muda depois de cadastrado — é ele
+--     que abre a porta, e uma troca errada deixaria alguém de fora.
+drop policy if exists criar_membras on membras;
+drop policy if exists editar_membras on membras;
+create policy criar_membras on membras for insert to authenticated with check (public.eh_membra());
+create policy editar_membras on membras for update to authenticated using (public.eh_membra()) with check (public.eh_membra());
+
+create or replace function public.membras_email_fixo() returns trigger
+language plpgsql as $$
+begin
+  if lower(trim(new.email)) is distinct from old.email then
+    raise exception 'O e-mail de uma membra não muda depois de cadastrado.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+drop trigger if exists membras_email_fixo on membras;
+create trigger membras_email_fixo before update on membras
+  for each row execute function public.membras_email_fixo();

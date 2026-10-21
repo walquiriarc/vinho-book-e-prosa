@@ -1,6 +1,6 @@
 // Service worker: deixa o app instalável e abre mesmo sem internet
 // (com o que estava em cache). Dados do Supabase nunca passam por aqui.
-const VERSAO = "vbp-v1";
+const VERSAO = "vbp-v2";
 const CASCA = ["./", "./index.html", "./styles.css", "./app.js", "./config.js",
   "./manifest.webmanifest", "./icones/icone-192.png", "./icones/icone-512.png"];
 
