@@ -273,3 +273,17 @@ end $$;
 drop trigger if exists membras_email_fixo on membras;
 create trigger membras_email_fixo before update on membras
   for each row execute function public.membras_email_fixo();
+
+-- ============================================================
+--  Endurecimento (21/10/2026, avisos do linter de segurança do Supabase)
+--  Sem mudança de comportamento: as políticas rodam como `authenticated`,
+--  que continua podendo chamar as funções; só quem não entrou perde o acesso.
+-- ============================================================
+alter function public.normaliza_email() set search_path = public;
+alter function public.membras_email_fixo() set search_path = public;
+revoke execute on function public.eh_membra() from public, anon;
+revoke execute on function public.meu_nome() from public, anon;
+revoke execute on function public.livro_tem_historico(uuid) from public, anon;
+grant execute on function public.eh_membra() to authenticated;
+grant execute on function public.meu_nome() to authenticated;
+grant execute on function public.livro_tem_historico(uuid) to authenticated;
