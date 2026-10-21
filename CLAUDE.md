@@ -37,8 +37,10 @@ publicamente junto com o app.
   repositório público parado por 60 dias. Qualquer edição no arquivo dispara uma
   execução de teste (`on: push: paths`).
 - `GUIA-EMAIL-PROPRIO.md` — como a dona troca o remetente de fábrica do Supabase
-  (2 e-mails/hora) por SMTP próprio e põe `{{ .Token }}` no template Magic Link.
-  É configuração de painel; o código não sabe qual remetente está em uso.
+  (2 e-mails/hora) por SMTP próprio: domínio pessoal `walquiriacristelli.com` (Cloudflare
+  Registrar), Resend no subdomínio `clube.walquiriacristelli.com`, e `{{ .Token }}` no
+  template Magic Link. É configuração de painel; o código não sabe qual remetente está
+  em uso. O domínio da empresa (`superinteligencia.org`) ficou fora do caminho.
 
 ## App instalável (PWA)
 - `docs/manifest.webmanifest` + `docs/sw.js` + ícones em `docs/icones/` (gerados do

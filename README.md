@@ -113,10 +113,12 @@ dígitos** em vez de clicar no link — o link abre no Safari, fora do app.
 
 O remetente de fábrica do Supabase manda só **2 e-mails por hora**: na noite em que o
 link circular no grupo, a terceira amiga fica de fora. O passo a passo para trocar por um
-remetente do clube (Resend com o domínio, ou o Gmail sem mexer em domínio), o modelo do
-e-mail que traz o código de 6 dígitos e como testar antes de mandar no grupo estão em
-**[GUIA-EMAIL-PROPRIO.md](GUIA-EMAIL-PROPRIO.md)**. Tudo é feito nos painéis do Supabase
-e do provedor; o app não muda.
+remetente do clube está em **[GUIA-EMAIL-PROPRIO.md](GUIA-EMAIL-PROPRIO.md)**: registrar o
+domínio pessoal `walquiriacristelli.com` na Cloudflare, ligar a Resend com o subdomínio
+`clube.walquiriacristelli.com` (remetente `oi@clube.walquiriacristelli.com`), o modelo do
+e-mail que traz o código de 6 dígitos e como testar antes de mandar no grupo. Há também o
+caminho pelo Gmail, sem domínio. Tudo é feito nos painéis da Cloudflare, da Resend e do
+Supabase; o app não muda.
 
 ## Como cada membra usa
 
