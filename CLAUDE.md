@@ -19,8 +19,12 @@ publicamente junto com o app.
 
 - `docs/index.html` — estrutura: cabeçalho (nome do clube + botão de identidade), 4 abas
   (**livros**, votação, agenda, **lidos**), rodapé com status, `#avisos` e `#modal-root`.
-  Na aba Livros, o formulário de adicionar tem um seletor de destino (Quero ler /
-  Lendo agora / Já lido); "Já lido" mostra o campo de data.
+  Na aba Livros, o formulário de adicionar tem um seletor de **tipo** (Livro / Série /
+  Filme) e um de destino (Quero ler / Lendo agora / Já lido); "Já lido" mostra o campo
+  de data. Abaixo de "Quero ler" há o filtro por tipo (`#filtro-tipo`), que só aparece
+  quando a lista mistura tipos. Na aba Agenda, o formulário tem o tipo do evento
+  (Encontro do clube / Sessão de cinema) e, no fim, a seção "Aniversários do ano"
+  (`#lista-aniversarios`).
 - `docs/styles.css` — identidade visual do clube. Tudo sai de variáveis em `:root`.
 - `docs/config.js` — `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NOME_DO_CLUBE`.
   A lista de membras NÃO está mais aqui: ela vive na tabela `membras`.
@@ -32,7 +36,7 @@ publicamente junto com o app.
   `icones/icone.svg`; a versão "maskable" tem a arte a 78% para o recorte do Android).
 - O service worker cacheia só a casca (rede primeiro para código; cache primeiro para
   capas/ícones). **Nunca cacheia o Supabase.** Para forçar atualização do cache,
-  troque `VERSAO` em `sw.js`.
+  troque `VERSAO` em `sw.js` (hoje `vbp-v2`).
 - Convite de instalação: `mostrarFaixaInstalar()` (só celular, só depois do login,
   respeita "Agora não" em localStorage) e `instalar()` (prompt nativo no Android;
   passo a passo do Safari no iPhone). Também no menu da conta.
@@ -48,7 +52,12 @@ agenda (coral), resenhas (verde-azulado). Tipografia: **Fraunces** nos títulos,
 Tema claro e escuro completos.
 
 ## Tabelas
-- `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em, capa_url)` — status ∈ {fila, atual, lido}.
+- `livros(id, titulo, autor, sugerido_por, status, arquivado, terminado_em, capa_url, tipo, paginas)` — status ∈ {fila, atual, lido};
+  `tipo` ∈ {livro, serie, filme} (padrão `livro`). A tabela guarda os três tipos; o
+  mapa `TIPOS` no `app.js` dá os rótulos ("Quero ver", "Vista", "Visto"). **Só livro vira
+  `atual` e só livro entra na votação** — o app esconde a opção "Lendo agora" para série e
+  filme e `renderVotacao()` filtra por `ehLivro()`. `paginas` é o total de páginas
+  (opcional; com ele o progresso vira porcentagem).
   `capa_url` é relativo (`capas/NN-slug.jpg`, arquivos em `docs/capas/`) ou link externo
   (Open Library, achado em segundo plano ao adicionar um livro COM autoria — `buscarCapa()`).
   Sem capa, o cartão mostra a inicial do título (`capaHtml()`).
@@ -59,6 +68,14 @@ Tema claro e escuro completos.
 - `encontros(id, data, hora, local, livro_id, arquivado)`
 - `presencas(id, encontro_id, membra, confirmado)` — único por (encontro_id, membra)
 - `resenhas(id, livro_id, membra, nota 1..5, texto)` — único por (livro_id, membra)
+- `progressos(id, livro_id, membra, pagina, atualizado_em)` — único por (livro_id, membra).
+  Em que página cada membra está; o cartão "Lendo agora" mostra todas (`blocoProgresso()`).
+  Página marcada conta como histórico do livro (`livro_tem_historico()` e `temHistorico()`).
+- `encontros.tipo` ∈ {encontro, cinema} — a sessão de cinema é um encontro com selo próprio;
+  presença funciona igual (serve para contar os lugares no carro).
+- `membras(id, email, nome, aniversario_dia, aniversario_mes)` — aniversário só com dia e
+  mês; a agenda calcula a próxima ocorrência (`proximoAniversario()`), mostra os próximos
+  60 dias no meio dos encontros e todos na seção "Aniversários do ano". Sem presença.
 
 ## SÓ MEMBRAS ENTRAM — regra estrutural
 Todas as políticas do banco são `to authenticated using (public.eh_membra())`.
@@ -69,7 +86,12 @@ Consequências:
 - `aplicarSessao()` no `app.js` é o coração disso: consulta `membras` pelo e-mail
   da sessão, define `membra` (o nome de exibição) e só então chama `carregar()`.
 - `carregar()` retorna cedo se `membra` for nulo — não adianta buscar deslogada.
-- Para acrescentar alguém: `insert into membras (email, nome) values (...)`.
+- Para acrescentar alguém: no app, menu da conta → **"Cadastrar uma amiga nova"**
+  (`cadastrarMembra()`: e-mail + apelido, confere duplicata, grava via `gravar()` e abre
+  `mostrarConvite()` com o texto pronto para o WhatsApp). Pelo banco:
+  `insert into membras (email, nome) values (...)`. Políticas `criar_membras` e
+  `editar_membras` (esta última para aniversário e apelido). **O e-mail não muda depois
+  de cadastrado**: o trigger `membras_email_fixo` recusa, porque é o e-mail que abre a porta.
 - Ao mudar o endereço do site, atualize **Site URL** e **Redirect URLs** no painel
   do Supabase (Authentication -> URL Configuration), senão o link do e-mail volta
   para o lugar errado.
@@ -91,16 +113,21 @@ mexer no código:
   pode ter virado a leitura atual enquanto ele estava guardado.
 
 ## Como o app.js está organizado
-- `carregar()` busca as 5 tabelas, **confere o erro de todas elas** e só substitui
-  o `estado` se tudo deu certo. Numa falha, mantém na tela o que já tinha.
+- `carregar()` busca as 7 tabelas (as cinco originais mais `progressos` e `membras`),
+  **confere o erro de todas elas** e só substitui o `estado` se tudo deu certo. Numa
+  falha, mantém na tela o que já tinha.
 - `gravar(oQue, executar, botao, mensagem)` é o caminho único de toda escrita:
   exige banco e identidade, trava o botão, lê o `error` que o Supabase devolve,
   recarrega e avisa. **Nunca chame `db.from(...).insert()` direto.**
 - `avisar(texto, tipo)` mostra um aviso flutuante. `status(texto, classe)` escreve no rodapé.
 - `abrirModal({...})` / `fecharModal()` para diálogos; `abrirEscolhaMembra()` é a tela
   "Quem é você?".
-- Render: `renderLivros`, `renderVotacao`, `renderAgenda`, `renderLidos`, coordenadas
-  por `renderTudo()`. A aba Lidos ordena por `terminado_em` decrescente (sem data vai ao fim).
+- Render: `renderLivros` (com `renderFiltroTipo` e `blocoProgresso` no cartão atual),
+  `renderVotacao`, `renderAgenda` (com `renderAniversarios` e `cartaoAniversario`),
+  `renderLidos`, coordenadas por `renderTudo()`. A aba Lidos ordena por `terminado_em`
+  decrescente (sem data vai ao fim).
+- Os formulários fixos trocam de rótulo conforme o tipo escolhido: `atualizarTipoForm()`
+  (livro/série/filme) e `atualizarTipoEncontro()` (encontro/cinema).
 - `trocarAba(nome, livroId?)` aceita um id para rolar até o cartão `#livro-<id>` — usado
   ao adicionar ou marcar um livro como lido, para levar a pessoa direto até ele.
 - Atualização automática a cada 15s, só com a aba visível.

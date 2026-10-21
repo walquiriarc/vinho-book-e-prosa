@@ -100,13 +100,26 @@ dígitos** em vez de clicar no link — o link abre no Safari, fora do app.
 - **Livros**: adicionar livros escolhendo onde entram — **Quero ler**, **Lendo agora** ou
   **Já lido** (bom para cadastrar de uma vez o histórico do clube). Só um livro fica como
   "Lendo agora" por vez: ao colocar outro, o anterior volta para Quero ler, e o app avisa.
+  A lista Quero ler aceita também **séries e filmes** (escolha o tipo no formulário); quando
+  há mistura, aparecem botões para ver só livros, só séries ou só filmes. Série e filme não
+  viram "Lendo agora" nem entram na votação — eles são para ver juntas.
+- **Onde cada uma está**: no cartão "Lendo agora", cada membra marca a página em que está
+  (e informa o total de páginas do livro, se quiser ver a porcentagem). Todas veem o
+  progresso de todas, da mais adiantada para a que ainda não marcou.
 - **Arquivar em vez de apagar**: o botão "Arquivar" tira o livro ou o encontro da tela sem
   destruir nada. Os itens guardados ficam numa seção "Arquivados" no fim da aba, com um
   botão "Trazer de volta". Nada neste app pode ser apagado de verdade.
 - **Votação**: votar nos livros de Quero ler (1 voto por pessoa por livro), com barra e destaque
   para o mais votado.
 - **Agenda**: marcar encontros e confirmar presença. Os próximos aparecem primeiro, com
-  contagem regressiva; os que já passaram ficam separados no fim.
+  contagem regressiva; os que já passaram ficam separados no fim. Além do encontro do clube,
+  dá para marcar uma **sessão de cinema** (a estreia do filme baseado no livro): o "Eu vou"
+  serve para contar os lugares no carro. Os **aniversários** das membras entram sozinhos na
+  agenda quando faltam menos de 60 dias e repetem todo ano; a seção "Aniversários do ano"
+  mostra todas e é onde cada uma informa (ou alguém informa por ela) o dia e o mês.
+- **Membra nova**: toque no seu nome no topo → **"Cadastrar uma amiga nova"**, com o e-mail e
+  o apelido dela. O app monta o convite para mandar no WhatsApp. Não precisa mais mexer no
+  painel do banco.
 - **Lidos**: os livros terminados, do mais recente para o mais antigo, cada um com a nota
   (estrelas) e a opinião de cada uma. A data de término é preenchida sozinha e dá para ajustar.
   O que você digita fica guardado como rascunho mesmo antes de salvar — a atualização
