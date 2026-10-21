@@ -30,6 +30,15 @@ publicamente junto com o app.
   A lista de membras NÃO está mais aqui: ela vive na tabela `membras`.
 - `docs/app.js` — toda a lógica.
 - `schema.sql` — tabelas, índice de unicidade e políticas RLS.
+- `.github/workflows/keep-alive.yml` — o GitHub consulta o banco todo dia (plano
+  gratuito do Supabase pausa após 7 dias com pouca atividade de banco). Usa a chave
+  publicável lida do `config.js`; nenhum segredo. A cada 50 dias sem commit grava um
+  commit mínimo em `.github/keep-alive.txt`, porque o GitHub desliga agendamentos de
+  repositório público parado por 60 dias. Qualquer edição no arquivo dispara uma
+  execução de teste (`on: push: paths`).
+- `GUIA-EMAIL-PROPRIO.md` — como a dona troca o remetente de fábrica do Supabase
+  (2 e-mails/hora) por SMTP próprio e põe `{{ .Token }}` no template Magic Link.
+  É configuração de painel; o código não sabe qual remetente está em uso.
 
 ## App instalável (PWA)
 - `docs/manifest.webmanifest` + `docs/sw.js` + ícones em `docs/icones/` (gerados do
@@ -40,6 +49,8 @@ publicamente junto com o app.
 - Convite de instalação: `mostrarFaixaInstalar()` (só celular, só depois do login,
   respeita "Agora não" em localStorage) e `instalar()` (prompt nativo no Android;
   passo a passo do Safari no iPhone). Também no menu da conta.
+- **Banco pausado** = app inteiro fora ("Sem conexão com o banco"). Religar é no painel
+  do Supabase (Restore project); o `keep-alive.yml` existe para isso não acontecer.
 - **Login dentro do app instalado:** no iPhone, o link do e-mail abre no Safari, fora do
   app, e a sessão não chega ao app. Por isso a tela "Olhe o seu e-mail" aceita o
   **código de 6 dígitos** (`verifyOtp`, type "email"). O código só vem no e-mail se o

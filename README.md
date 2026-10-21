@@ -69,13 +69,33 @@ No Terminal, dentro da pasta do projeto:
 
 ```
 cd ~/Downloads/clube-do-livro
+git pull
 git add -A
 git commit -m "descreva a mudanca"
 git push
 ```
 
+O `git pull` do começo busca o que o próprio GitHub possa ter gravado no repositório
+(ver "O banco não dorme", abaixo); sem ele, o `git push` pode ser recusado.
 Em cerca de um minuto o site no ar já reflete a alteração. Os dados no Supabase
 não são afetados — eles ficam no banco, separados do site.
+
+### O banco não dorme
+
+O plano gratuito do Supabase pausa um projeto que fica uma semana com pouca atividade
+de banco, e aí o app inteiro sai do ar ("Sem conexão com o banco") até alguém religar
+no painel. Para isso não acontecer, o arquivo `.github/workflows/keep-alive.yml` faz
+o GitHub consultar o banco **todo dia às 6h23 da manhã** (horário de Brasília), de graça,
+sem senha nenhuma: usa a mesma chave pública que já vai no site. Você não precisa fazer
+nada. Para conferir, abra a aba **Actions** do repositório: cada dia tem uma execução
+verde chamada "Manter o banco acordado".
+
+Dois cuidados que o fluxo já toma sozinho: o GitHub desliga agendamentos de repositório
+que fica 60 dias sem atividade, então a cada 50 dias sem commit o próprio fluxo grava um
+commit mínimo (é por isso que o `git pull` entrou nos passos acima). Se mesmo assim um
+dia aparecer na aba Actions o aviso de agendamento desativado, é um clique em
+**Enable workflow**. E se o banco for pausado por outro motivo, a execução fica
+vermelha com a instrução: abrir o painel do Supabase e clicar em **Restore project**.
 
 ---
 
@@ -88,6 +108,15 @@ como app de verdade — e abre mesmo sem internet (mostrando o que estava em cac
 
 **Importante no iPhone:** entre pelo ícone e, na tela do e-mail, **digite o código de 6
 dígitos** em vez de clicar no link — o link abre no Safari, fora do app.
+
+## O e-mail com o código: use um remetente seu
+
+O remetente de fábrica do Supabase manda só **2 e-mails por hora**: na noite em que o
+link circular no grupo, a terceira amiga fica de fora. O passo a passo para trocar por um
+remetente do clube (Resend com o domínio, ou o Gmail sem mexer em domínio), o modelo do
+e-mail que traz o código de 6 dígitos e como testar antes de mandar no grupo estão em
+**[GUIA-EMAIL-PROPRIO.md](GUIA-EMAIL-PROPRIO.md)**. Tudo é feito nos painéis do Supabase
+e do provedor; o app não muda.
 
 ## Como cada membra usa
 
