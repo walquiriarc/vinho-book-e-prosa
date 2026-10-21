@@ -1,0 +1,88 @@
+# ============================================================
+#  Manter o banco do clube acordado
+# ------------------------------------------------------------
+#  O plano gratuito do Supabase pausa um projeto que fica 7 dias com
+#  pouca atividade de banco ("a few user requests to the database each
+#  day" é o que basta — docs "Project Pausing", lidas em 21/10/2026).
+#  Pausado, o app inteiro sai do ar até alguém religar no painel.
+#
+#  Este fluxo faz, todo dia, três consultas de verdade ao banco pela API
+#  pública, com a mesma chave publicável que já vai no site (config.js).
+#  Sem login a regra "só membras" esconde as linhas, então a resposta é
+#  sempre count = 0 — mas a consulta roda no Postgres, e é isso que conta.
+#
+#  O GitHub desliga agendamentos de repositório público sem atividade por
+#  60 dias (docs "Events that trigger workflows → schedule", 21/10/2026).
+#  Por isso o último passo grava um commit mínimo quando o repositório
+#  está há 50 dias sem commit: a atividade zera a contagem.
+#
+#  Não precisa de segredo nenhum. Para rodar na hora: aba Actions →
+#  "Manter o banco acordado" → Run workflow.
+# ============================================================
+name: Manter o banco acordado
+
+on:
+  schedule:
+    - cron: "23 9 * * *"   # todo dia às 09:23 UTC (06:23 em Brasília), longe da virada de hora, quando o GitHub atrasa
+  workflow_dispatch:       # botão "Run workflow" na aba Actions
+  push:
+    paths:
+      - ".github/workflows/keep-alive.yml"   # mudou este arquivo? roda uma vez, como teste
+
+permissions:
+  contents: write   # só para o commit de manutenção a cada ~50 dias
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # histórico completo, para saber a data do último commit
+
+      - name: Ler a conexão do config.js
+        run: |
+          URL=$(sed -n 's/^const SUPABASE_URL = "\(.*\)";/\1/p' docs/config.js)
+          KEY=$(sed -n 's/^const SUPABASE_ANON_KEY = "\(.*\)";/\1/p' docs/config.js)
+          test -n "$URL" && test -n "$KEY"
+          echo "::add-mask::$KEY"
+          echo "SUPABASE_URL=$URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "Projeto: $URL"
+
+      - name: Consultar o banco
+        run: |
+          falhas=0
+          for tabela in livros encontros membras; do
+            resposta=$(curl -sS --max-time 30 -w '\n%{http_code}' \
+              "$SUPABASE_URL/rest/v1/$tabela?select=count" \
+              -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY")
+            corpo=$(printf '%s\n' "$resposta" | sed '$d')
+            codigo=$(printf '%s\n' "$resposta" | tail -n 1)
+            echo "$tabela -> HTTP $codigo $corpo"
+            if [ "$codigo" != "200" ] || ! printf '%s' "$corpo" | grep -q '"count"'; then
+              falhas=$((falhas + 1))
+            fi
+          done
+          if [ "$falhas" -ne 0 ]; then
+            echo "::error::O banco não respondeu como esperado. Ele pode estar pausado: abra o painel do Supabase e clique em Restore project."
+            exit 1
+          fi
+          echo "O banco respondeu às três consultas. Contagem 0 é o esperado sem login."
+
+      - name: Manter o agendamento vivo no GitHub
+        if: github.ref == 'refs/heads/main' && github.event_name == 'schedule'
+        run: |
+          ultimo=$(git log -1 --format=%ct)
+          dias=$(( ( $(date +%s) - ultimo ) / 86400 ))
+          echo "Último commit há $dias dias."
+          if [ "$dias" -lt 50 ]; then
+            echo "Menos de 50 dias: nada a fazer."
+            exit 0
+          fi
+          date -u +"%Y-%m-%d %H:%M UTC" > .github/keep-alive.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keep-alive.txt
+          git commit -m "Mantem o agendamento do keep-alive ativo"
+          git push
